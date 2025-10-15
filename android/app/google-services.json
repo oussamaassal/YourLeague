@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "157796386001",
+    "firebase_url": "https://footapp-c17ca-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "footapp-c17ca",
+    "storage_bucket": "footapp-c17ca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:157796386001:android:d4ed78e15eb85cdfdf71f0",
+        "android_client_info": {
+          "package_name": "com.example.footapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArQ3RzbShSRa3c1p6Bdbkv_HIZQC462Fs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:157796386001:android:7abcdcda11a7af3ddf71f0",
+        "android_client_info": {
+          "package_name": "com.freeplay.yourleague.yourleague"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyArQ3RzbShSRa3c1p6Bdbkv_HIZQC462Fs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

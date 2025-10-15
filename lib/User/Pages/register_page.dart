@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:yourleague/User/Components/my_text_field.dart';
+import 'package:yourleague/User/Services/auth/auth_service.dart';
 
 import '../Components/my_buton.dart';
 
@@ -19,8 +21,33 @@ class _RegisterPageState extends State<RegisterPage> {
   final confirmPasswordController = TextEditingController();
 
   // sign up user
-  void signUp() {
+  void signUp() async {
+    if(passwordController.text != confirmPasswordController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Passwords do not match!"),
+        ),
+      );
+      return;
+    }
+    
+    // get the auth service
+    final authService = Provider.of<AuthService>(context, listen: false);
 
+    try {
+      await authService.signUpWithEmailandPassword(
+          emailController.text,
+          passwordController.text,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString(),
+          ),
+        ),
+      );
+    }
   }
   @override
   Widget build(BuildContext context) {
