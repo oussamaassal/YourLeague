@@ -63,30 +63,31 @@ class _HomePageState extends State<HomePage> {
   }
 
   // build indivisual user list items
+  // build individual user list items
   Widget _buildUserListItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data()! as Map<String, dynamic>;
 
     // display all users except current user
-    if(_auth.currentUser!.email != data['email']) {
+    if (_auth.currentUser!.email != data['email']) {
       return ListTile(
+        // The fix is here: Wrap the string in a Text widget
         title: Text(data['email']),
-          onTap: () {
-            // pass the clicked user's UID to the chat page
-            Navigator.push(
+        onTap: () {
+          // pass the clicked user's UID to the chat page
+          Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ChatPage(
                   receiverUserEmail: data['email'],
                   receiverUserID: data['uid'],
                 ),
-              )
-            );
-          },
-       );
-      }
-    else {
-      // return empty container
+              ));
+        },
+      );
+    } else {
+      // return empty container for the current user
       return Container();
     }
   }
+
 }
