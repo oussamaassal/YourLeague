@@ -1,122 +1,154 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'components/welcome_page.dart';
+import 'features/auth/data/firebase_auth_repo.dart';
+import 'features/auth/presentation/components/loading.dart';
+import 'features/auth/presentation/cubits/auth_cubit.dart';
+import 'features/auth/presentation/cubits/auth_states.dart';
+import 'features/auth/presentation/pages/auth_page.dart';
+import 'features/home/data/firebase_post_repo.dart';
+import 'features/home/presentation/cubits/post_cubit.dart';
+import 'features/home/presentation/pages/home_page.dart';
+import 'features/moderation/data/firebase_moderation_repo.dart';
+import 'features/moderation/presentation/cubits/moderation_cubit.dart';
+import 'features/subscriptions/data/revenuecat_constants.dart';
+import 'features/subscriptions/data/revenuecat_service.dart';
+import 'features/subscriptions/presentation/cubits/offerings_cubit.dart';
+import 'features/subscriptions/presentation/cubits/subscription_cubit.dart';
+import 'themes/dark_mode.dart';
+import 'themes/light_mode.dart';
 
-void main() {
-  runApp(const MyApp());
+// =====================================================
+// MAIN ENTRY POINT - START HERE!
+// =====================================================
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // =====================================================
+  // STEP 1: FIREBASE SETUP (REQUIRED FOR FULL APP)
+  // =====================================================
+  // The app will show a welcome page until you connect Firebase.
+  // To get started:
+  // 1. Create a Firebase project at console.firebase.google.com
+  // 2. Add your Flutter app and download config files
+  // 3. UNCOMMENT the two lines below ⬇️
+
+  bool firebaseInitialized = false;
+  try {
+    // 🔥 UNCOMMENT THESE TWO LINES AFTER FIREBASE SETUP:
+    // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    // firebaseInitialized = true;
+  } catch (e) {
+    print("ℹ️  Firebase not connected yet - showing welcome page");
+    firebaseInitialized = false;
+  }
+
+  // =====================================================
+  // STEP 2: REVENUECAT SETUP (OPTIONAL - FOR SUBSCRIPTIONS $$)
+  // =====================================================
+  // RevenueCat handles paid subscriptions. Skip this if you don't need subscriptions.
+  // To enable: Replace "YOUR_REVENUECAT_API_KEY_HERE" in revenuecat_constants.dart
+
+  // configure revenue cat
+  await RevenuecatService.configureRevenueCat(appleApiKey);
+
+  // =====================================================
+  // START THE APP
+  // =====================================================
+  runApp(MyApp(firebaseEnabled: firebaseInitialized));
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+// =====================================================
+// APP WIDGET - HANDLES ROUTING & STATE MANAGEMENT
+// =====================================================
 
-  // This widget is the root of your application.
+class MyApp extends StatelessWidget {
+  final bool firebaseEnabled;
+
+  const MyApp({super.key, this.firebaseEnabled = false});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      debugShowCheckedModeBanner: false,
+      title: 'Moonbase',
+      theme: lightMode,
+      darkTheme: darkMode,
+
+      // ROUTING LOGIC:
+      // If Firebase is connected → Full app with authentication
+      // If Firebase is NOT connected → Welcome page with setup instructions
+      home: firebaseEnabled ? _buildFullApp() : const WelcomePage(),
     );
   }
-}
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
+  // =====================================================
+  // FULL APP - ONLY LOADS WHEN FIREBASE IS CONNECTED
+  // =====================================================
+  Widget _buildFullApp() {
+    return MultiBlocProvider(
+      // Set up all state management (BLoC pattern)
+      providers: [
+        // Handles user authentication (login/register/logout)
+        BlocProvider<AuthCubit>(
+          create: (context) =>
+              AuthCubit(authRepo: FirebaseAuthRepo())..checkAuth(),
         ),
+
+        // Handles blocking users & reporting content
+        BlocProvider<ModerationCubit>(
+          create: (context) =>
+              ModerationCubit(moderationRepo: FirebaseModerationRepo()),
+        ),
+
+        // Handles posts & comments
+        BlocProvider<PostCubit>(
+          create: (context) => PostCubit(
+            postRepo: FirebasePostRepo(),
+            moderationCubit: context.read<ModerationCubit>(),
+          ),
+        ),
+
+        // Handles checking if user has pro subscription
+        BlocProvider<SubscriptionCubit>(
+          create: (context) => SubscriptionCubit(),
+        ),
+
+        // Handles subscription purchase flow
+        BlocProvider<OfferingsCubit>(
+          create: (context) => OfferingsCubit(),
+        ),
+      ],
+
+      // Main app navigation based on authentication state
+      child: BlocConsumer<AuthCubit, AuthState>(
+        builder: (context, state) {
+          // User not logged in → Show login/register pages
+          if (state is Unauthenticated) return const AuthPage();
+
+          // User logged in → Show main app (home page)
+          if (state is Authenticated) return const HomePage();
+
+          // Loading → Show loading spinner
+          return const LoadingScreen();
+        },
+
+        // Listen for state changes to show errors or check subscription
+        listener: (context, state) {
+          // Show error messages to user
+          if (state is AuthError) {
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(state.message)));
+          }
+
+          // When user logs in, check if they have pro subscription
+          if (state is Authenticated) {
+            context.read<SubscriptionCubit>().checkProStatus();
+          }
+        },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
