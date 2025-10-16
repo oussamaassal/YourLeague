@@ -7,7 +7,7 @@ import 'User/features/auth/presentation/components/loading.dart';
 import 'User/features/auth/presentation/cubits/auth_cubit.dart';
 import 'User/features/auth/presentation/cubits/auth_states.dart';
 import 'User/features/auth/presentation/pages/auth_page.dart';
-import 'User/features/home/data/firebase_post_repo.dart';
+/*import 'User/features/home/data/firebase_post_repo.dart';
 import 'User/features/home/presentation/cubits/post_cubit.dart';
 import 'User/features/home/presentation/pages/home_page.dart';
 import 'User/features/moderation/data/firebase_moderation_repo.dart';
@@ -15,7 +15,7 @@ import 'User/features/moderation/presentation/cubits/moderation_cubit.dart';
 import 'User/features/subscriptions/data/revenuecat_constants.dart';
 import 'User/features/subscriptions/data/revenuecat_service.dart';
 import 'User/features/subscriptions/presentation/cubits/offerings_cubit.dart';
-import 'User/features/subscriptions/presentation/cubits/subscription_cubit.dart';
+import 'User/features/subscriptions/presentation/cubits/subscription_cubit.dart';*/
 import 'User/themes/dark_mode.dart';
 import 'User/themes/light_mode.dart';
 
@@ -52,7 +52,7 @@ void main() async {
   // To enable: Replace "YOUR_REVENUECAT_API_KEY_HERE" in revenuecat_constants.dart
 
   // configure revenue cat
-  await RevenuecatService.configureRevenueCat(appleApiKey);
+  //await RevenuecatService.configureRevenueCat(appleApiKey);
 
   // =====================================================
   // START THE APP
@@ -98,7 +98,7 @@ class MyApp extends StatelessWidget {
         ),
 
         // Handles blocking users & reporting content
-        BlocProvider<ModerationCubit>(
+       /* BlocProvider<ModerationCubit>(
           create: (context) =>
               ModerationCubit(moderationRepo: FirebaseModerationRepo()),
         ),
@@ -119,7 +119,7 @@ class MyApp extends StatelessWidget {
         // Handles subscription purchase flow
         BlocProvider<OfferingsCubit>(
           create: (context) => OfferingsCubit(),
-        ),
+        ),*/
       ],
 
       // Main app navigation based on authentication state
@@ -144,9 +144,9 @@ class MyApp extends StatelessWidget {
           }
 
           // When user logs in, check if they have pro subscription
-          if (state is Authenticated) {
+         /* if (state is Authenticated) {
             context.read<SubscriptionCubit>().checkProStatus();
-          }
+          }*/
         },
       ),
     );
