@@ -1,23 +1,23 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'components/welcome_page.dart';
-import 'features/auth/data/firebase_auth_repo.dart';
-import 'features/auth/presentation/components/loading.dart';
-import 'features/auth/presentation/cubits/auth_cubit.dart';
-import 'features/auth/presentation/cubits/auth_states.dart';
-import 'features/auth/presentation/pages/auth_page.dart';
-import 'features/home/data/firebase_post_repo.dart';
-import 'features/home/presentation/cubits/post_cubit.dart';
-import 'features/home/presentation/pages/home_page.dart';
-import 'features/moderation/data/firebase_moderation_repo.dart';
-import 'features/moderation/presentation/cubits/moderation_cubit.dart';
-import 'features/subscriptions/data/revenuecat_constants.dart';
-import 'features/subscriptions/data/revenuecat_service.dart';
-import 'features/subscriptions/presentation/cubits/offerings_cubit.dart';
-import 'features/subscriptions/presentation/cubits/subscription_cubit.dart';
-import 'themes/dark_mode.dart';
-import 'themes/light_mode.dart';
+import 'User/components/welcome_page.dart';
+import 'User/features/auth/data/firebase_auth_repo.dart';
+import 'User/features/auth/presentation/components/loading.dart';
+import 'User/features/auth/presentation/cubits/auth_cubit.dart';
+import 'User/features/auth/presentation/cubits/auth_states.dart';
+import 'User/features/auth/presentation/pages/auth_page.dart';
+import 'User/features/home/data/firebase_post_repo.dart';
+import 'User/features/home/presentation/cubits/post_cubit.dart';
+import 'User/features/home/presentation/pages/home_page.dart';
+import 'User/features/moderation/data/firebase_moderation_repo.dart';
+import 'User/features/moderation/presentation/cubits/moderation_cubit.dart';
+import 'User/features/subscriptions/data/revenuecat_constants.dart';
+import 'User/features/subscriptions/data/revenuecat_service.dart';
+import 'User/features/subscriptions/presentation/cubits/offerings_cubit.dart';
+import 'User/features/subscriptions/presentation/cubits/subscription_cubit.dart';
+import 'User/themes/dark_mode.dart';
+import 'User/themes/light_mode.dart';
 
 // =====================================================
 // MAIN ENTRY POINT - START HERE!
@@ -73,7 +73,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Moonbase',
+      title: 'YourLeague',
       theme: lightMode,
       darkTheme: darkMode,
 
