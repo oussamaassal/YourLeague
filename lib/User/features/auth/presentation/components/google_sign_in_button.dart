@@ -16,7 +16,7 @@ class MyGoogleSignInButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Theme.of(context).colorScheme.tertiary)),
         child: Image.asset(
-          'lib/assets/google.png',
+          'lib/User/assets/google.png',
           height: 32,
         ),
       ),

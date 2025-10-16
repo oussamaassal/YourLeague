@@ -1,6 +1,8 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'User/features/home/presentation/pages/home_page.dart';
+import 'firebase_options.dart';
 import 'User/components/welcome_page.dart';
 import 'User/features/auth/data/firebase_auth_repo.dart';
 import 'User/features/auth/presentation/components/loading.dart';
@@ -38,8 +40,8 @@ void main() async {
   bool firebaseInitialized = false;
   try {
     // 🔥 UNCOMMENT THESE TWO LINES AFTER FIREBASE SETUP:
-    // await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    // firebaseInitialized = true;
+     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+     firebaseInitialized = true;
   } catch (e) {
     print("ℹ️  Firebase not connected yet - showing welcome page");
     firebaseInitialized = false;

@@ -16,7 +16,7 @@ class MyAppleSignInButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Theme.of(context).colorScheme.tertiary)),
         child: Image.asset(
-          'lib/assets/apple.png',
+          'lib/User/assets/apple.png',
           height: 32,
           color: Theme.of(context).colorScheme.inversePrimary,
         ),
