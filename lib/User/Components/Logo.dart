@@ -13,7 +13,7 @@ class Logo extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Theme.of(context).colorScheme.tertiary)),
       child: Image.asset(
-        'lib/User/assets/Logo.png',
+        'lib/User/assets/logo.png',
         height: 100,
         color: Theme.of(context).colorScheme.inversePrimary,
       ),
