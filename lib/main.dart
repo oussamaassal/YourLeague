@@ -5,6 +5,8 @@ import 'package:yourleague/User/Services/auth/auth_gate.dart';
 import 'package:yourleague/User/Services/auth/auth_service.dart';
 import 'package:yourleague/User/Services/auth/login_or_register.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:yourleague/User/themes/dark_mode.dart';
+import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
 
 
@@ -30,6 +32,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      title: 'Your League',
+      theme: lightMode,
+      darkTheme: darkMode,
       home: AuthGate(),
     );
   }

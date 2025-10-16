@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yourleague/User/Pages/chat_page.dart';
+import 'package:yourleague/User/Pages/friends_page.dart';
+import 'package:yourleague/User/Pages/home_page.dart';
 import 'package:yourleague/User/Services/auth/auth_service.dart';
 /*import '../features/profile/profile_page.dart';
 import '../features/settings/presentation/settings_page.dart';*/
@@ -57,7 +60,7 @@ class MyDrawer extends StatelessWidget {
             // header icon
             Container(
               padding: const EdgeInsets.symmetric(vertical: 25),
-              child: const Icon(Icons.phone),
+              child: const Icon(Icons.list,size: 75,),
             ),
 
             Divider(
@@ -72,7 +75,30 @@ class MyDrawer extends StatelessWidget {
             MyDrawerTile(
               text: "Home",
               icon: Icons.home,
-              onTap: () => Navigator.pop(context),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HomePage(),
+                  ),
+                );
+              },
+            ),
+
+            // profile tile
+            MyDrawerTile(
+              text: "Friends List",
+              icon: Icons.message,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FriendsPage(),
+                  ),
+                );
+              },
             ),
 
             // profile tile

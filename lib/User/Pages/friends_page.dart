@@ -6,14 +6,14 @@ import 'package:yourleague/User/Components/drawer.dart';
 import 'package:yourleague/User/Pages/chat_page.dart';
 import 'package:yourleague/User/Services/auth/auth_service.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+class FriendsPage extends StatefulWidget {
+  const FriendsPage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<FriendsPage> createState() => _FriendsPageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _FriendsPageState extends State<FriendsPage> {
   // instance of auth
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -29,8 +29,9 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Home page'),
+        title: Text('Friends List'),
       ),
+      body: _buildUserList(),
       // DRAWER
       drawer: const MyDrawer(),
     );

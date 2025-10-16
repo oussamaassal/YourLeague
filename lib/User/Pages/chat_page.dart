@@ -119,7 +119,7 @@ class _ChatPageState extends State<ChatPage> {
       child: Row(
         children: [
           // textfield
-          Expanded(child: MyTextField(
+          Expanded(child: MyTextfield(
               controller: _messageController,
               hintText: 'Enter message',
               obscureText: false

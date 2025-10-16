@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yourleague/User/Components/Logo.dart';
 import 'package:yourleague/User/Components/my_text_field.dart';
 import 'package:yourleague/User/Services/auth/auth_service.dart';
 
@@ -52,7 +53,6 @@ class _RegisterPageState extends State<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.grey[300],
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -62,8 +62,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 children: [
                   const SizedBox(height: 50),
                   // logo
-                  Icon(Icons.message,
-                    size: 100,),
+                  Logo(),
 
                   const SizedBox(height: 50),
 
@@ -77,7 +76,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 50),
 
                   //email texfield
-                  MyTextField(
+                  MyTextfield(
                       controller: emailController,
                       hintText: 'Email',
                       obscureText: false
@@ -85,7 +84,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 10),
 
                   //password textfield
-                  MyTextField(
+                  MyTextfield(
                       controller: passwordController,
                       hintText: 'Password',
                       obscureText: true
@@ -93,7 +92,7 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 10),
 
                   //confirm password
-                  MyTextField(
+                  MyTextfield(
                       controller: confirmPasswordController,
                       hintText: 'Confirm password',
                       obscureText: true

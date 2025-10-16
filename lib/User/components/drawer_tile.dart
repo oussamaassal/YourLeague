@@ -17,8 +17,8 @@ class MyDrawerTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 25.0),
       child: ListTile(
-        title: Text(text),
-        leading: Icon(icon),
+        title: Text(text,),
+        leading: Icon(icon,size: 30,),
         onTap: onTap,
       ),
     );
