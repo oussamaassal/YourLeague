@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:yourleague/User/Components/drawer.dart';
 import 'package:yourleague/User/Pages/chat_page.dart';
 import 'package:yourleague/User/Services/auth/auth_service.dart';
 
@@ -38,6 +39,8 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
       body: _buildUserList(),
+      // DRAWER
+      drawer: const MyDrawer(),
     );
   }
 
