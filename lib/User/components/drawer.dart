@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:yourleague/User/features/profile/profile_page.dart';
 import '../features/auth/presentation/cubits/auth_cubit.dart';
 /*import '../features/profile/profile_page.dart';
 import '../features/settings/presentation/settings_page.dart';*/
@@ -74,7 +75,7 @@ class MyDrawer extends StatelessWidget {
             ),
 
             // profile tile
-            /*MyDrawerTile(
+            MyDrawerTile(
               text: "Profile",
               icon: Icons.person,
               onTap: () {
@@ -89,7 +90,7 @@ class MyDrawer extends StatelessWidget {
             ),
 
             // settings tile
-            MyDrawerTile(
+            /*MyDrawerTile(
               text: "Settings",
               icon: Icons.settings,
               onTap: () {

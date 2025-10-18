@@ -53,6 +53,7 @@ class MyApp extends StatelessWidget {
         darkTheme: darkMode,
         home: firebaseEnabled ? _buildAppBody() : const WelcomePage(),
       ),
+
     );
   }
 
