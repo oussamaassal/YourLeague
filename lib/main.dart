@@ -7,6 +7,7 @@ import 'package:yourleague/User/features/auth/presentation/components/loading.da
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dart';
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_states.dart';
 import 'package:yourleague/User/features/auth/presentation/pages/auth_page.dart';
+import 'package:yourleague/User/features/home/presentation/pages/home_page.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
@@ -61,6 +62,7 @@ class MyApp extends StatelessWidget {
     return BlocConsumer<AuthCubit, AuthState>(
       builder: (context, state) {
         if (state is Unauthenticated) return const AuthPage();
+        if (state is Authenticated) return const HomePage();
         return const LoadingScreen();
       },
       listener: (context, state) {
