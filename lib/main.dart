@@ -8,6 +8,8 @@ import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dar
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_states.dart';
 import 'package:yourleague/User/features/auth/presentation/pages/auth_page.dart';
 import 'package:yourleague/User/features/home/presentation/pages/home_page.dart';
+import 'package:yourleague/User/features/moderation/data/firebase_moderation_repo.dart';
+import 'package:yourleague/User/features/moderation/presentation/cubits/moderation_cubit.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
@@ -44,6 +46,13 @@ class MyApp extends StatelessWidget {
           create: (context) =>
           AuthCubit(authRepo: FirebaseAuthRepo())..checkAuth(),
         ),
+
+        // Handles blocking users & reporting content
+        BlocProvider<ModerationCubit>(
+          create: (context) =>
+              ModerationCubit(moderationRepo: FirebaseModerationRepo()),
+        ),
+
       ],
 
       child: MaterialApp(
