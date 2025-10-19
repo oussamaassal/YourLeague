@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:yourleague/User/features/auth/presentation/components/Logo.dart';
 import '../components/my_button.dart';
 import '../components/my_textfield.dart';
 import '../cubits/auth_cubit.dart';
@@ -77,11 +78,7 @@ class _RegisterPageState extends State<RegisterPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // logo
-                Icon(
-                  Icons.lock_open,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                Logo(),
 
                 const SizedBox(height: 25),
 

@@ -7,5 +7,5 @@ ThemeData lightMode = ThemeData(
     tertiary: Colors.white,
     inversePrimary: Colors.grey.shade900,
   ),
-  scaffoldBackgroundColor: Colors.grey.shade100,
+  scaffoldBackgroundColor: Colors.grey.shade300,
 );

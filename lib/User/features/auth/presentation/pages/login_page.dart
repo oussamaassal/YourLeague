@@ -16,6 +16,7 @@ If user doesn't have an account, they can go to register page to create one.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:yourleague/User/features/auth/presentation/components/Logo.dart';
 import '../components/apple_sign_in_button.dart';
 import '../components/google_sign_in_button.dart';
 import '../components/my_button.dart';
@@ -112,17 +113,13 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   // logo
-                  Icon(
-                    Icons.lock_open,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
+                  Logo(),
 
                   const SizedBox(height: 25),
 
                   // name of app
                   Text(
-                    "Build, Launch & Monetize",
+                    "Welcome! Login to your account",
                     style: TextStyle(
                       fontSize: 16,
                       color: Theme.of(context).colorScheme.inversePrimary,
