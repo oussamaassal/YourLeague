@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:yourleague/User/features/chat/presentation/pages/friends_page.dart';
 import 'package:yourleague/User/features/profile/profile_page.dart';
 import 'package:yourleague/User/features/settings/presentation/settings_page.dart';
 import '../features/auth/presentation/cubits/auth_cubit.dart';
@@ -85,6 +86,21 @@ class MyDrawer extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) => const ProfilePage(),
+                  ),
+                );
+              },
+            ),
+
+            // friends tile
+            MyDrawerTile(
+              text: "Friends List",
+              icon: Icons.message,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FriendsPage(),
                   ),
                 );
               },

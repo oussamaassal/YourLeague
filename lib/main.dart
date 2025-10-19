@@ -7,6 +7,8 @@ import 'package:yourleague/User/features/auth/presentation/components/loading.da
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dart';
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_states.dart';
 import 'package:yourleague/User/features/auth/presentation/pages/auth_page.dart';
+import 'package:yourleague/User/features/chat/data/firebase_chat_repo.dart';
+import 'package:yourleague/User/features/chat/presentation/cubits/chat_cubits.dart';
 import 'package:yourleague/User/features/home/presentation/pages/home_page.dart';
 import 'package:yourleague/User/features/moderation/data/firebase_moderation_repo.dart';
 import 'package:yourleague/User/features/moderation/presentation/cubits/moderation_cubit.dart';
@@ -51,6 +53,10 @@ class MyApp extends StatelessWidget {
         BlocProvider<ModerationCubit>(
           create: (context) =>
               ModerationCubit(moderationRepo: FirebaseModerationRepo()),
+        ),
+
+        BlocProvider<ChatCubit>(
+            create: (context) => ChatCubit(chatRepo: FirebaseChatRepo())
         ),
 
       ],
