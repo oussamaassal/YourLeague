@@ -15,6 +15,10 @@ class ProductsPage extends StatefulWidget {
 }
 
 class _ProductsPageState extends State<ProductsPage> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+  String _sortOrder = 'none'; // 'none', 'lowToHigh', 'highToLow'
+
   @override
   void initState() {
     super.initState();
@@ -22,6 +26,31 @@ class _ProductsPageState extends State<ProductsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ShopCubit>().getAllProducts();
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Product> _filterAndSortProducts(List<Product> products) {
+    // Filter by search query
+    List<Product> filtered = products.where((product) {
+      final searchLower = _searchQuery.toLowerCase();
+      return product.name.toLowerCase().contains(searchLower) ||
+          product.category.toLowerCase().contains(searchLower) ||
+          product.description.toLowerCase().contains(searchLower);
+    }).toList();
+
+    // Sort products
+    if (_sortOrder == 'lowToHigh') {
+      filtered.sort((a, b) => a.price.compareTo(b.price));
+    } else if (_sortOrder == 'highToLow') {
+      filtered.sort((a, b) => b.price.compareTo(a.price));
+    }
+
+    return filtered;
   }
 
   @override
@@ -41,8 +70,108 @@ class _ProductsPageState extends State<ProductsPage> {
           ),
         ],
       ),
-      body: _buildProductsList(),
-    ) : _buildProductsList();
+      body: Column(
+        children: [
+          // Search and Sort Bar
+          _buildSearchAndSortBar(),
+          // Products List
+          Expanded(child: _buildProductsList()),
+        ],
+      ),
+    ) : Column(
+      children: [
+        _buildSearchAndSortBar(),
+        Expanded(child: _buildProductsList()),
+      ],
+    );
+  }
+
+  Widget _buildSearchAndSortBar() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      color: Theme.of(context).colorScheme.surface,
+      child: Column(
+        children: [
+          // Search Bar
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              hintText: 'Search by name, category...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        setState(() {
+                          _searchController.clear();
+                          _searchQuery = '';
+                        });
+                      },
+                    )
+                  : null,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              filled: true,
+              fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            ),
+            onChanged: (value) {
+              setState(() {
+                _searchQuery = value;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          // Sort Buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _sortOrder = _sortOrder == 'lowToHigh' ? 'none' : 'lowToHigh';
+                    });
+                  },
+                  icon: Icon(
+                    _sortOrder == 'lowToHigh'
+                        ? Icons.arrow_upward
+                        : Icons.sort,
+                  ),
+                  label: const Text('Low to High'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _sortOrder == 'lowToHigh'
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _sortOrder = _sortOrder == 'highToLow' ? 'none' : 'highToLow';
+                    });
+                  },
+                  icon: Icon(
+                    _sortOrder == 'highToLow'
+                        ? Icons.arrow_downward
+                        : Icons.sort,
+                  ),
+                  label: const Text('High to Low'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _sortOrder == 'highToLow'
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildProductsList() {
@@ -57,10 +186,35 @@ class _ProductsPageState extends State<ProductsPage> {
                 return const Center(child: Text('No products available'));
               }
 
+              final filteredAndSorted = _filterAndSortProducts(state.products);
+
+              if (filteredAndSorted.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_off, size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No products found',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Try a different search term',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
               return ListView.builder(
-                itemCount: state.products.length,
+                itemCount: filteredAndSorted.length,
                 itemBuilder: (context, index) {
-                  final product = state.products[index];
+                  final product = filteredAndSorted[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Padding(
