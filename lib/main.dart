@@ -12,6 +12,11 @@ import 'package:yourleague/User/features/chat/presentation/cubits/chat_cubits.da
 import 'package:yourleague/User/features/home/presentation/pages/home_page.dart';
 import 'package:yourleague/User/features/moderation/data/firebase_moderation_repo.dart';
 import 'package:yourleague/User/features/moderation/presentation/cubits/moderation_cubit.dart';
+import 'package:yourleague/User/features/shop/data/firebase_shop_repo.dart';
+import 'package:yourleague/User/features/shop/presentation/cubits/shop_cubit.dart';
+import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dart';
+import 'package:yourleague/User/features/matches/data/firebase_matches_repo.dart';
+import 'package:yourleague/User/features/matches/presentation/cubits/matches_cubit.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
@@ -57,6 +62,21 @@ class MyApp extends StatelessWidget {
 
         BlocProvider<ChatCubit>(
             create: (context) => ChatCubit(chatRepo: FirebaseChatRepo())
+        ),
+
+        // Handles shop operations (products, orders, transactions)
+        BlocProvider<ShopCubit>(
+          create: (context) => ShopCubit(shopRepo: FirebaseShopRepo()),
+        ),
+
+        // Handles shopping cart
+        BlocProvider<CartCubit>(
+          create: (context) => CartCubit(),
+        ),
+
+        // Handles matches and tournaments
+        BlocProvider<MatchesCubit>(
+          create: (context) => MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
         ),
 
       ],
