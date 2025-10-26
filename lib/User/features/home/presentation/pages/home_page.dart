@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../components/drawer.dart';
-import '../../../auth/presentation/components/my_textfield.dart';
-import '../../../auth/presentation/cubits/auth_cubit.dart';
+import '../../../shop/presentation/pages/products_page.dart';
+import '../../../shop/presentation/pages/cart_page.dart';
+import '../../../shop/presentation/cubits/shop_cubit.dart';
+import '../../../shop/presentation/cubits/cart_cubit.dart';
+import '../../../shop/presentation/cubits/cart_states.dart';
+import '../../../matches/presentation/pages/matches_page.dart';
+import '../../../matches/presentation/pages/match_events_page.dart';
+import '../../../matches/presentation/pages/leaderboards_page.dart';
+import '../../../matches/presentation/pages/tournaments_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,10 +22,18 @@ class _HomePageState extends State<HomePage>
     with SingleTickerProviderStateMixin {
   // Tab controller
   late final _tabController = TabController(length: 3, vsync: this);
+  int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
+    _tabController.addListener(() {
+      if (_tabController.indexIsChanging || _tabController.index != _currentTabIndex) {
+        setState(() {
+          _currentTabIndex = _tabController.index;
+        });
+      }
+    });
   }
 
   // BUILD UI
@@ -30,6 +45,53 @@ class _HomePageState extends State<HomePage>
       appBar: AppBar(
         title: const Text("Home page"),
         foregroundColor: Theme.of(context).colorScheme.primary,
+        actions: [
+          // Cart Icon with Badge
+          IconButton(
+            icon: Stack(
+              children: [
+                const Icon(Icons.shopping_cart),
+                BlocBuilder<CartCubit, CartState>(
+                  builder: (context, state) {
+                    if (state is CartUpdated && state.items.isNotEmpty) {
+                      final itemCount = context.read<CartCubit>().itemCount;
+                      return Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            '$itemCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      );
+                    }
+                    return const SizedBox();
+                  },
+                ),
+              ],
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const CartPage()),
+              );
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           dividerColor: Colors.transparent,
@@ -46,7 +108,134 @@ class _HomePageState extends State<HomePage>
       // DRAWER
       drawer: const MyDrawer(),
 
+      // FLOATING ACTION BUTTON
+      floatingActionButton: _currentTabIndex == 2
+          ? FloatingActionButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => BlocProvider.value(
+                    value: context.read<ShopCubit>(),
+                    child: const AddProductDialog(),
+                  ),
+                );
+              },
+              child: const Icon(Icons.add),
+            )
+          : null,
 
+      // BODY - Tab Content
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Page 1 - Matches
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.sports_soccer,
+                  size: 80,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Matches & Results',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Manage tournament matches',
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+                const SizedBox(height: 30),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const MatchesPage()),
+                    );
+                  },
+                  icon: const Icon(Icons.sports_soccer),
+                  label: const Text('View Matches'),
+                ),
+              ],
+            ),
+          ),
+
+          // Page 2 - Tournament Features
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.leaderboard,
+                    size: 80,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Tournament Management',
+                    style: Theme.of(context).textTheme.headlineSmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 30),
+                  
+                  // Tournaments Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const TournamentsPage(),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.leaderboard),
+                      label: const Text('View Tournaments'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Matches Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const MatchesPage()),
+                        );
+                      },
+                      icon: const Icon(Icons.sports_soccer),
+                      label: const Text('View Matches'),
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Page 3 - Shop (Products Page)
+          const ProductsPage(showAppBar: false),
+        ],
+      ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }
