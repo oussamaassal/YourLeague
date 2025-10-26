@@ -7,6 +7,8 @@ import '../features/auth/presentation/cubits/auth_cubit.dart';
 /*import '../features/profile/profile_page.dart';
 import '../features/settings/presentation/settings_page.dart';*/
 import 'drawer_tile.dart';
+import 'package:yourleague/User/features/teams/presentation/pages/teams_page.dart';
+
 
 class MyDrawer extends StatelessWidget {
   const MyDrawer({super.key});
@@ -102,6 +104,17 @@ class MyDrawer extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (context) => const FriendsPage(),
                   ),
+                );
+              },
+            ),
+            MyDrawerTile(
+              text: "Teams",
+              icon: Icons.groups,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TeamsPage()),
                 );
               },
             ),
