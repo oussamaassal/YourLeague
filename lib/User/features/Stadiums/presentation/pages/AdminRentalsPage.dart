@@ -1,47 +1,75 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 
-class AdminRentalsPage extends StatefulWidget {
+class AdminRentalsPage extends StatelessWidget {
   const AdminRentalsPage({super.key});
-
-  @override
-  State<AdminRentalsPage> createState() => _AdminRentalsPageState();
-}
-
-class _AdminRentalsPageState extends State<AdminRentalsPage> {
-  final rentalsRef = FirebaseFirestore.instance.collection('stadium_rentals');
 
   Color _getStatusColor(String status) {
     switch (status) {
       case 'confirmed':
         return Colors.green;
-      case 'pending':
-        return Colors.orange;
       case 'cancelled':
         return Colors.red;
       default:
-        return Colors.grey;
+        return Colors.orange;
+    }
+  }
+
+  Future<void> _updateStatus(BuildContext context, String docId, String newStatus) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Status Change'),
+        content: Text('Are you sure you want to change the status to "$newStatus"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('stadium_rentals')
+            .doc(docId)
+            .update({'status': newStatus});
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Status updated to "$newStatus"')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating status: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Stadium Rentals')),
+      appBar: AppBar(
+        title: const Text('Rentals Management'),
+      ),
       body: StreamBuilder<QuerySnapshot>(
-        stream: rentalsRef.orderBy('createdAt', descending: true).snapshots(),
+        stream: FirebaseFirestore.instance
+            .collection('stadium_rentals')
+            .orderBy('createdAt', descending: true)
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No rentals yet.'));
+            return const Center(child: Text('No rentals found.'));
           }
 
           final rentals = snapshot.data!.docs;
@@ -49,58 +77,47 @@ class _AdminRentalsPageState extends State<AdminRentalsPage> {
           return ListView.builder(
             itemCount: rentals.length,
             itemBuilder: (context, index) {
-              final rental = rentals[index];
-              final data = rental.data() as Map<String, dynamic>;
+              final doc = rentals[index];
+              final data = doc.data() as Map<String, dynamic>;
 
-              final timestamp = data['rentalDateTime'] as Timestamp?;
-              final formattedDate = timestamp != null
-                  ? DateFormat('yyyy-MM-dd HH:mm').format(timestamp.toDate())
-                  : '-';
+              final stadiumName = data['stadiumName'] ?? 'Unknown Stadium';
+              final status = data['status'] ?? 'pending';
+              final hours = data['hours'] ?? 0;
 
-              final status = data['status'] ?? '-';
+              // ✅ FIXED DATE HANDLING — supports both Timestamp and String
+              final dateField = data['date'];
+              DateTime? dateTime;
+
+              if (dateField is Timestamp) {
+                dateTime = dateField.toDate();
+              } else if (dateField is String) {
+                dateTime = DateTime.tryParse(dateField);
+              }
+
+              String formattedDate = dateTime != null
+                  ? '${dateTime.day}/${dateTime.month}/${dateTime.year} - ${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}'
+                  : 'Unknown date';
 
               return Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 child: ListTile(
-                  title: Text(data['stadiumName'] ?? 'Unknown Stadium'),
-                  subtitle: Text(
-                      'Date: $formattedDate\nHours: ${data['hours']?.toString() ?? '-'}'),
+                  title: Text(stadiumName),
+                  subtitle: Text('Date: $formattedDate\nHours: $hours'),
                   trailing: PopupMenuButton<String>(
-                    onSelected: (value) async {
-                      final confirm = await showDialog<bool>(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: Text('Change status?'),
-                          content: Text('Change status to $value?'),
-                          actions: [
-                            TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: const Text('No')),
-                            TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: const Text('Yes')),
-                          ],
-                        ),
-                      );
-                      if (confirm == true) {
-                        try {
-                          await rentalsRef.doc(rental.id).update({'status': value});
-                        } catch (e) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to update status: $e')),
-                          );
-                        }
-                      }
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'pending', child: Text('Pending')),
-                      PopupMenuItem(value: 'confirmed', child: Text('Confirmed')),
-                      PopupMenuItem(value: 'cancelled', child: Text('Cancelled')),
-                    ],
-                    child: Chip(
-                      label: Text(status),
+                    icon: Chip(
+                      label: Text(
+                        status.toUpperCase(),
+                        style: const TextStyle(color: Colors.white),
+                      ),
                       backgroundColor: _getStatusColor(status),
                     ),
+                    onSelected: (newStatus) =>
+                        _updateStatus(context, doc.id, newStatus),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'confirmed', child: Text('Mark as Confirmed')),
+                      const PopupMenuItem(value: 'cancelled', child: Text('Mark as Cancelled')),
+                      const PopupMenuItem(value: 'pending', child: Text('Mark as Pending')),
+                    ],
                   ),
                 ),
               );
