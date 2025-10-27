@@ -1,8 +1,9 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'dart:io';
 
 class AdminAddStadiumPage extends StatefulWidget {
   const AdminAddStadiumPage({super.key});
@@ -21,24 +22,41 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
   File? _imageFile;
   bool _isLoading = false;
 
+  // 🟦 Your Cloudinary credentials
+  final String cloudName = 'dcqs7fphe';
+  final String uploadPreset = 'YourLeague'; // safer for client use
+
   Future<void> _pickImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
     if (picked != null) setState(() => _imageFile = File(picked.path));
   }
 
+  Future<String> _uploadToCloudinary(File imageFile) async {
+    final uri = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
+    final request = http.MultipartRequest('POST', uri)
+      ..fields['upload_preset'] = uploadPreset
+      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+
+    final response = await request.send();
+    final resBody = await response.stream.bytesToString();
+
+    if (response.statusCode == 200) {
+      final data = json.decode(resBody);
+      return data['secure_url']; // ✅ Cloudinary image URL
+    } else {
+      throw Exception('Cloudinary upload failed: ${response.statusCode}');
+    }
+  }
+
   Future<void> _addStadium() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isLoading = true);
+
     try {
       String imageUrl = '';
       if (_imageFile != null) {
-        final storageRef = FirebaseStorage.instance
-            .ref()
-            .child('stadium_images/${DateTime.now().millisecondsSinceEpoch}.jpg');
-        await storageRef.putFile(_imageFile!);
-        imageUrl = await storageRef.getDownloadURL();
+        imageUrl = await _uploadToCloudinary(_imageFile!);
       }
 
       await FirebaseFirestore.instance.collection('stadiums').add({
@@ -80,8 +98,7 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration:
-                  const InputDecoration(labelText: 'Stadium Name'),
+                  decoration: const InputDecoration(labelText: 'Stadium Name'),
                   validator: (v) => v!.isEmpty ? 'Enter name' : null,
                 ),
                 TextFormField(
@@ -96,8 +113,7 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
                 ),
                 TextFormField(
                   controller: _priceController,
-                  decoration:
-                  const InputDecoration(labelText: 'Price per hour'),
+                  decoration: const InputDecoration(labelText: 'Price per hour'),
                   keyboardType: TextInputType.number,
                   validator: (v) {
                     if (v == null || v.isEmpty) return 'Enter price';
