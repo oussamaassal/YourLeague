@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../../Stadiums/presentation/pages/AdminRentalsPage.dart';
+import '../../../../../Stadiums/presentation/pages/admin_add_stadium_page.dart';
+import '../../../../../Stadiums/presentation/pages/rent_stadium_page.dart';
 import '../../../../components/drawer.dart';
 import '../../../shop/presentation/pages/products_page.dart';
 import '../../../shop/presentation/pages/cart_page.dart';
@@ -8,9 +11,7 @@ import '../../../shop/presentation/cubits/cart_cubit.dart';
 import '../../../shop/presentation/cubits/cart_states.dart';
 import '../../../matches/presentation/pages/matches_page.dart';
 import '../../../matches/presentation/pages/tournaments_page.dart';
-import '../../../Stadiums/presentation/pages/admin_add_stadium_page.dart';
-import '../../../Stadiums/presentation/pages/rent_stadium_page.dart';
-import '../../../Stadiums/presentation/pages/AdminRentalsPage.dart';
+
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
