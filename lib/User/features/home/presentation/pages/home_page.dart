@@ -7,9 +7,10 @@ import '../../../shop/presentation/cubits/shop_cubit.dart';
 import '../../../shop/presentation/cubits/cart_cubit.dart';
 import '../../../shop/presentation/cubits/cart_states.dart';
 import '../../../matches/presentation/pages/matches_page.dart';
-import '../../../matches/presentation/pages/match_events_page.dart';
-import '../../../matches/presentation/pages/leaderboards_page.dart';
 import '../../../matches/presentation/pages/tournaments_page.dart';
+import '../../../Stadiums/presentation/pages/admin_add_stadium_page.dart';
+import '../../../Stadiums/presentation/pages/rent_stadium_page.dart';
+import '../../../Stadiums/presentation/pages/AdminRentalsPage.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -18,44 +19,36 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with SingleTickerProviderStateMixin {
-  // Tab controller
-  late final _tabController = TabController(length: 3, vsync: this);
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(length: 6, vsync: this);
   int _currentTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController.addListener(() {
-      if (_tabController.indexIsChanging || _tabController.index != _currentTabIndex) {
-        setState(() {
-          _currentTabIndex = _tabController.index;
-        });
-      }
+      setState(() {
+        _currentTabIndex = _tabController.index;
+      });
     });
   }
 
-  // BUILD UI
   @override
   Widget build(BuildContext context) {
-    // SCAFFOLD
     return Scaffold(
-      // APP BAR
       appBar: AppBar(
         title: const Text("Home page"),
         foregroundColor: Theme.of(context).colorScheme.primary,
         actions: [
-          // Cart Icon with Badge
           IconButton(
-            icon: Stack(
-              children: [
-                const Icon(Icons.shopping_cart),
-                BlocBuilder<CartCubit, CartState>(
-                  builder: (context, state) {
-                    if (state is CartUpdated && state.items.isNotEmpty) {
-                      final itemCount = context.read<CartCubit>().itemCount;
-                      return Positioned(
+            icon: BlocBuilder<CartCubit, CartState>(
+              builder: (context, state) {
+                final itemCount = state is CartUpdated ? state.items.length : 0;
+                return Stack(
+                  children: [
+                    const Icon(Icons.shopping_cart),
+                    if (itemCount > 0)
+                      Positioned(
                         right: 0,
                         top: 0,
                         child: Container(
@@ -64,25 +57,17 @@ class _HomePageState extends State<HomePage>
                             color: Colors.red,
                             shape: BoxShape.circle,
                           ),
-                          constraints: const BoxConstraints(
-                            minWidth: 16,
-                            minHeight: 16,
-                          ),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                           child: Text(
                             '$itemCount',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                            ),
+                            style: const TextStyle(color: Colors.white, fontSize: 10),
                             textAlign: TextAlign.center,
                           ),
                         ),
-                      );
-                    }
-                    return const SizedBox();
-                  },
-                ),
-              ],
+                      ),
+                  ],
+                );
+              },
             ),
             onPressed: () {
               Navigator.push(
@@ -92,142 +77,53 @@ class _HomePageState extends State<HomePage>
             },
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          dividerColor: Colors.transparent,
-          labelColor: Theme.of(context).colorScheme.inversePrimary,
-          unselectedLabelColor: Theme.of(context).colorScheme.primary,
-          tabs: const [
-            Tab(text: "Page 1"),
-            Tab(text: "Page 2"),
-            Tab(text: "Page 3"),
-          ],
-        ),
-      ),
-
-      // DRAWER
-      drawer: const MyDrawer(),
-
-      // FLOATING ACTION BUTTON
-      floatingActionButton: _currentTabIndex == 2
-          ? FloatingActionButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => BlocProvider.value(
-                    value: context.read<ShopCubit>(),
-                    child: const AddProductDialog(),
-                  ),
-                );
-              },
-              child: const Icon(Icons.add),
-            )
-          : null,
-
-      // BODY - Tab Content
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Page 1 - Matches
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.sports_soccer,
-                  size: 80,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Matches & Results',
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Manage tournament matches',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 30),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => const MatchesPage()),
-                    );
-                  },
-                  icon: const Icon(Icons.sports_soccer),
-                  label: const Text('View Matches'),
-                ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              dividerColor: Colors.transparent,
+              labelColor: Theme.of(context).colorScheme.inversePrimary,
+              unselectedLabelColor: Theme.of(context).colorScheme.primary,
+              indicatorColor: Theme.of(context).colorScheme.primary,
+              tabs: const [
+                Tab(text: "Matches"),
+                Tab(text: "Tournaments"),
+                Tab(text: "Shop"),
+                Tab(text: "Add Stadium"),
+                Tab(text: "Rent"),
+                Tab(text: "Rentals"),
               ],
             ),
           ),
-
-          // Page 2 - Tournament Features
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.leaderboard,
-                    size: 80,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Tournament Management',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 30),
-                  
-                  // Tournaments Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const TournamentsPage(),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.leaderboard),
-                      label: const Text('View Tournaments'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Matches Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const MatchesPage()),
-                        );
-                      },
-                      icon: const Icon(Icons.sports_soccer),
-                      label: const Text('View Matches'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+        ),
+      ),
+      drawer: const MyDrawer(),
+      floatingActionButton: _currentTabIndex == 2
+          ? FloatingActionButton(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (context) => BlocProvider.value(
+              value: context.read<ShopCubit>(),
+              child: const AddProductDialog(),
             ),
-          ),
-
-          // Page 3 - Shop (Products Page)
-          const ProductsPage(showAppBar: false),
+          );
+        },
+        child: const Icon(Icons.add),
+      )
+          : null,
+      body: IndexedStack(
+        index: _currentTabIndex,
+        children: const [
+          MatchesPage(),
+          TournamentsPage(),
+          ProductsPage(showAppBar: false),
+          AdminAddStadiumPage(),
+          RentStadiumPage(),
+          AdminRentalsPage(),
         ],
       ),
     );
