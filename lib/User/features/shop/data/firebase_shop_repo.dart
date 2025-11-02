@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../domain/entities/product.dart';
 import '../domain/entities/order.dart';
 import '../domain/entities/transaction.dart';
+import '../domain/entities/review.dart';
 import '../domain/repos/shop_repo.dart';
 
 class FirebaseShopRepo implements ShopRepo {
@@ -213,6 +214,85 @@ class FirebaseShopRepo implements ShopRepo {
       await _firestore.collection('transactions').doc(transaction.id).update(transaction.toJson());
     } catch (e) {
       throw Exception('Failed to update transaction: $e');
+    }
+  }
+
+  // ==================== REVIEW CRUD ====================
+
+  @override
+  Future<void> createReview(Review review) async {
+    try {
+      await _firestore
+          .collection('products')
+          .doc(review.productId)
+          .collection('reviews')
+          .doc(review.id)
+          .set(review.toJson());
+    } catch (e) {
+      throw Exception('Failed to create review: $e');
+    }
+  }
+
+  @override
+  Future<List<Review>> getProductReviews(String productId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('products')
+          .doc(productId)
+          .collection('reviews')
+          .orderBy('createdAt', descending: true)
+          .get();
+      return snapshot.docs
+          .map((doc) => Review.fromJson(doc.data()))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get product reviews: $e');
+    }
+  }
+
+  @override
+  Future<Review?> getUserReviewForProduct(String productId, String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('products')
+          .doc(productId)
+          .collection('reviews')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
+      
+      if (snapshot.docs.isEmpty) return null;
+      return Review.fromJson(snapshot.docs.first.data());
+    } catch (e) {
+      throw Exception('Failed to get user review: $e');
+    }
+  }
+
+  @override
+  Future<void> updateReview(Review review) async {
+    try {
+      await _firestore
+          .collection('products')
+          .doc(review.productId)
+          .collection('reviews')
+          .doc(review.id)
+          .update(review.toJson());
+    } catch (e) {
+      throw Exception('Failed to update review: $e');
+    }
+  }
+
+  @override
+  Future<void> deleteReview(String productId, String reviewId) async {
+    try {
+      await _firestore
+          .collection('products')
+          .doc(productId)
+          .collection('reviews')
+          .doc(reviewId)
+          .delete();
+    } catch (e) {
+      throw Exception('Failed to delete review: $e');
     }
   }
 }

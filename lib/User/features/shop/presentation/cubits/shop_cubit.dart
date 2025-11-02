@@ -1,13 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/entities/transaction.dart';
+import '../../domain/entities/review.dart';
 import '../../domain/repos/shop_repo.dart';
 import 'shop_states.dart';
 
 class ShopCubit extends Cubit<ShopState> {
   final ShopRepo shopRepo;
+  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
   ShopCubit({required this.shopRepo}) : super(ShopInitial());
 
@@ -38,7 +41,10 @@ class ShopCubit extends Cubit<ShopState> {
       );
 
       await shopRepo.createProduct(product);
-      emit(OperationSuccess('Product created successfully'));
+      
+      // Reload products after successful creation
+      final products = await shopRepo.getAllProducts();
+      emit(ProductsLoaded(products));
     } catch (e) {
       emit(ShopError('Failed to create product: $e'));
     }
@@ -82,7 +88,10 @@ class ShopCubit extends Cubit<ShopState> {
     try {
       emit(ShopLoading());
       await shopRepo.updateProduct(product);
-      emit(OperationSuccess('Product updated successfully'));
+      
+      // Reload products after successful update
+      final products = await shopRepo.getAllProducts();
+      emit(ProductsLoaded(products));
     } catch (e) {
       emit(ShopError('Failed to update product: $e'));
     }
@@ -92,7 +101,10 @@ class ShopCubit extends Cubit<ShopState> {
     try {
       emit(ShopLoading());
       await shopRepo.deleteProduct(productId);
-      emit(OperationSuccess('Product deleted successfully'));
+      
+      // Reload products after successful deletion
+      final products = await shopRepo.getAllProducts();
+      emit(ProductsLoaded(products));
     } catch (e) {
       emit(ShopError('Failed to delete product: $e'));
     }
@@ -257,6 +269,75 @@ class ShopCubit extends Cubit<ShopState> {
       emit(OperationSuccess('Transaction updated successfully'));
     } catch (e) {
       emit(ShopError('Failed to update transaction: $e'));
+    }
+  }
+
+  // ==================== REVIEW CRUD ====================
+
+  Future<void> createReview({
+    required String productId,
+    required int rating,
+    required String comment,
+    String? userName,
+  }) async {
+    try {
+      final currentUser = _firebaseAuth.currentUser;
+      if (currentUser == null) {
+        emit(ShopError('You must be logged in to leave a review'));
+        return;
+      }
+
+      emit(ShopLoading());
+
+      // Check if user already has a review for this product
+      final existingReview = await shopRepo.getUserReviewForProduct(productId, currentUser.uid);
+      
+      final reviewId = existingReview?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+
+      final review = Review(
+        id: reviewId,
+        productId: productId,
+        userId: currentUser.uid,
+        userName: userName ?? currentUser.email?.split('@').first ?? 'Anonymous',
+        rating: rating,
+        comment: comment,
+        createdAt: fs.Timestamp.now(),
+      );
+
+      if (existingReview != null) {
+        await shopRepo.updateReview(review);
+      } else {
+        await shopRepo.createReview(review);
+      }
+
+      // Reload reviews after creating/updating
+      final reviews = await shopRepo.getProductReviews(productId);
+      emit(ReviewsLoaded(reviews));
+    } catch (e) {
+      emit(ShopError('Failed to create review: $e'));
+    }
+  }
+
+  Future<void> getProductReviews(String productId) async {
+    try {
+      emit(ShopLoading());
+      final reviews = await shopRepo.getProductReviews(productId);
+      emit(ReviewsLoaded(reviews));
+    } catch (e) {
+      emit(ShopError('Failed to get reviews: $e'));
+    }
+  }
+
+  Future<void> deleteReview(String productId, String reviewId) async {
+    try {
+      emit(ShopLoading());
+      await shopRepo.deleteReview(productId, reviewId);
+      
+      // Reload reviews after deletion
+      final reviews = await shopRepo.getProductReviews(productId);
+      emit(ReviewsLoaded(reviews));
+    } catch (e) {
+      emit(ShopError('Failed to delete review: $e'));
     }
   }
 }

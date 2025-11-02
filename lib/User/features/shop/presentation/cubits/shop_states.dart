@@ -1,6 +1,7 @@
 import '../../domain/entities/product.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/entities/transaction.dart';
+import '../../domain/entities/review.dart';
 
 abstract class ShopState {}
 
@@ -36,6 +37,11 @@ class TransactionLoaded extends ShopState {
 class TransactionsLoaded extends ShopState {
   final List<Transaction> transactions;
   TransactionsLoaded(this.transactions);
+}
+
+class ReviewsLoaded extends ShopState {
+  final List<Review> reviews;
+  ReviewsLoaded(this.reviews);
 }
 
 class OperationSuccess extends ShopState {

@@ -1,6 +1,7 @@
 import '../entities/product.dart';
 import '../entities/order.dart';
 import '../entities/transaction.dart';
+import '../entities/review.dart';
 
 abstract class ShopRepo {
   // Product CRUD
@@ -25,5 +26,12 @@ abstract class ShopRepo {
   Future<List<Transaction>> getUserTransactions(String userId);
   Future<List<Transaction>> getOrderTransactions(String orderId);
   Future<void> updateTransaction(Transaction transaction);
+
+  // Review CRUD
+  Future<void> createReview(Review review);
+  Future<List<Review>> getProductReviews(String productId);
+  Future<Review?> getUserReviewForProduct(String productId, String userId);
+  Future<void> updateReview(Review review);
+  Future<void> deleteReview(String productId, String reviewId);
 }
 
