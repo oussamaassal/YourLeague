@@ -5,6 +5,7 @@ import '../cubits/cart_cubit.dart';
 import '../cubits/cart_states.dart';
 import '../cubits/shop_cubit.dart';
 import '../../domain/entities/order.dart';
+import '../../data/stripe_payment_service.dart';
 
 class CartPage extends StatelessWidget {
   const CartPage({super.key});
@@ -134,6 +135,11 @@ class CartPage extends StatelessWidget {
                           child: const Text('Checkout'),
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: const SizedBox.shrink(),
+                      ),
                     ],
                   ),
                 ),
@@ -197,6 +203,19 @@ class CartPage extends StatelessWidget {
     }
 
     try {
+      // Process payment with Stripe using PaymentSheet
+      final totalAmount = (cartCubit.totalAmount * 100).toInt().toString(); // Convert to cents
+      final paymentSuccess = await StripePaymentService.processPayment(
+        context,
+        totalAmount,
+        'usd',
+      );
+
+      if (!paymentSuccess) {
+        // Payment failed
+        return;
+      }
+
       // Convert cart items to order items
       final orderItems = cartCubit.items
           .map((item) => {
@@ -220,7 +239,7 @@ class CartPage extends StatelessWidget {
         orderId: DateTime.now().millisecondsSinceEpoch.toString(),
         type: 'purchase',
         amount: cartCubit.totalAmount,
-        paymentMethod: 'credit_card',
+        paymentMethod: 'stripe',
       );
 
       // Clear cart
@@ -229,7 +248,7 @@ class CartPage extends StatelessWidget {
       // Show success message
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Order placed successfully!')),
+          const SnackBar(content: Text('Payment successful! Order placed.')),
         );
         Navigator.pop(context);
       }

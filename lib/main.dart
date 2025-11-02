@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:yourleague/User/Components/welcome_page.dart';
 import 'package:yourleague/User/features/auth/data/firebase_auth_repo.dart';
 import 'package:yourleague/User/features/auth/presentation/components/loading.dart';
@@ -15,6 +16,7 @@ import 'package:yourleague/User/features/moderation/presentation/cubits/moderati
 import 'package:yourleague/User/features/shop/data/firebase_shop_repo.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/shop_cubit.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dart';
+import 'package:yourleague/User/features/shop/data/stripe_payment_service.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
@@ -23,6 +25,9 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Stripe
+  await StripePaymentService.initialize();
 
   bool firebaseInitialized = false;
   try {
