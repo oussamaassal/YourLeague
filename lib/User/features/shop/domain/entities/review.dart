@@ -4,9 +4,10 @@ class Review {
   final String id;
   final String productId;
   final String userId;
-  final String? userName; // Optional, for display purposes
-  final int rating; // 1-5 stars
+  final String? userName;
+  final int rating;
   final String comment;
+  final String? imageUrl;
   final fs.Timestamp createdAt;
 
   Review({
@@ -16,6 +17,7 @@ class Review {
     this.userName,
     required this.rating,
     required this.comment,
+    this.imageUrl,
     required this.createdAt,
   });
 
@@ -27,6 +29,7 @@ class Review {
       'userName': userName,
       'rating': rating,
       'comment': comment,
+      'imageUrl': imageUrl,
       'createdAt': createdAt,
     };
   }
@@ -39,6 +42,7 @@ class Review {
       userName: json['userName'],
       rating: json['rating'],
       comment: json['comment'] ?? '',
+      imageUrl: json['imageUrl'],
       createdAt: json['createdAt'],
     );
   }

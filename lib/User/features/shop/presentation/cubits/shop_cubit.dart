@@ -279,6 +279,7 @@ class ShopCubit extends Cubit<ShopState> {
     required int rating,
     required String comment,
     String? userName,
+    String? imageUrl,
   }) async {
     try {
       final currentUser = _firebaseAuth.currentUser;
@@ -289,7 +290,6 @@ class ShopCubit extends Cubit<ShopState> {
 
       emit(ShopLoading());
 
-      // Check if user already has a review for this product
       final existingReview = await shopRepo.getUserReviewForProduct(productId, currentUser.uid);
       
       final reviewId = existingReview?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
@@ -301,6 +301,7 @@ class ShopCubit extends Cubit<ShopState> {
         userName: userName ?? currentUser.email?.split('@').first ?? 'Anonymous',
         rating: rating,
         comment: comment,
+        imageUrl: imageUrl,
         createdAt: fs.Timestamp.now(),
       );
 
@@ -310,7 +311,6 @@ class ShopCubit extends Cubit<ShopState> {
         await shopRepo.createReview(review);
       }
 
-      // Reload reviews after creating/updating
       final reviews = await shopRepo.getProductReviews(productId);
       emit(ReviewsLoaded(reviews));
     } catch (e) {

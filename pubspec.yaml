@@ -44,6 +44,8 @@ dependencies:
   url_launcher: ^6.3.2
   flutter_stripe: ^10.1.0
   http: ^1.2.0
+  cloudinary_public: ^0.23.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:

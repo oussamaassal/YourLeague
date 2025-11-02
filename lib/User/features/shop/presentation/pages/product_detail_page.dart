@@ -1,13 +1,16 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'package:image_picker/image_picker.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/shop_cubit.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/shop_states.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dart';
 import 'package:yourleague/User/features/shop/domain/entities/product.dart';
 import 'package:yourleague/User/features/shop/domain/entities/review.dart';
 import 'package:yourleague/User/features/shop/domain/entities/cart_item.dart';
+import 'package:yourleague/User/features/shop/data/cloudinary_service.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Product product;
@@ -22,6 +25,10 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final TextEditingController _commentController = TextEditingController();
   int _selectedRating = 0;
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+  final ImagePicker _imagePicker = ImagePicker();
+  final CloudinaryService _cloudinaryService = CloudinaryService();
+  File? _selectedImage;
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -38,7 +45,22 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
     super.dispose();
   }
 
-  void _submitReview() {
+  Future<void> _pickImage() async {
+    final XFile? image = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      maxHeight: 1024,
+      imageQuality: 85,
+    );
+
+    if (image != null) {
+      setState(() {
+        _selectedImage = File(image.path);
+      });
+    }
+  }
+
+  Future<void> _submitReview() async {
     if (_selectedRating == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a rating')),
@@ -53,23 +75,47 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       return;
     }
 
+    setState(() {
+      _isUploading = true;
+    });
+
+    String? imageUrl;
+    if (_selectedImage != null) {
+      imageUrl = await _cloudinaryService.uploadImage(_selectedImage!);
+      if (imageUrl == null) {
+        setState(() {
+          _isUploading = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to upload image')),
+          );
+        }
+        return;
+      }
+    }
+
     final currentUser = _firebaseAuth.currentUser;
     context.read<ShopCubit>().createReview(
           productId: widget.product.id,
           rating: _selectedRating,
           comment: _commentController.text.trim(),
           userName: currentUser?.email?.split('@').first,
+          imageUrl: imageUrl,
         );
 
-    // Clear form
     setState(() {
       _selectedRating = 0;
       _commentController.clear();
+      _selectedImage = null;
+      _isUploading = false;
     });
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Review submitted successfully')),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Review submitted successfully')),
+      );
+    }
   }
 
   double _calculateAverageRating(List<Review> reviews) {
@@ -310,12 +356,63 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                       const SizedBox(height: 16),
 
+                      // Image Picker
+                      Row(
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _pickImage,
+                            icon: const Icon(Icons.image),
+                            label: const Text('Add Photo'),
+                          ),
+                          if (_selectedImage != null) ...[
+                            const SizedBox(width: 12),
+                            Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(
+                                    _selectedImage!,
+                                    width: 60,
+                                    height: 60,
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                                Positioned(
+                                  right: -8,
+                                  top: -8,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.close, size: 18),
+                                    style: IconButton.styleFrom(
+                                      backgroundColor: Colors.black54,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.all(4),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _selectedImage = null;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
                       // Submit Review Button
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: _submitReview,
-                          child: const Text('Submit Review'),
+                          onPressed: _isUploading ? null : _submitReview,
+                          child: _isUploading
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Submit Review'),
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
@@ -416,6 +513,40 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
               review.comment,
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (review.imageUrl != null && review.imageUrl!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  review.imageUrl!,
+                  width: double.infinity,
+                  height: 200,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    height: 200,
+                    color: Colors.grey[200],
+                    child: const Center(
+                      child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+                    ),
+                  ),
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      height: 200,
+                      color: Colors.grey[200],
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Text(
               _formatDate(review.createdAt),
