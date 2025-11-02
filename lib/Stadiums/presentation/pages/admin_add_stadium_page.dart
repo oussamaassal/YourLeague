@@ -2,8 +2,11 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import '../cubits/stadium_cubit.dart';
+import '../cubits/stadium_states.dart';
+import '../../../../User/features/auth/presentation/cubits/auth_cubit.dart';
 
 class AdminAddStadiumPage extends StatefulWidget {
   const AdminAddStadiumPage({super.key});
@@ -18,9 +21,9 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
   final _cityController = TextEditingController();
   final _addressController = TextEditingController();
   final _priceController = TextEditingController();
+  final _capacityController = TextEditingController(text: '100');
 
   File? _imageFile;
-  bool _isLoading = false;
 
   // 🟦 Your Cloudinary credentials
   final String cloudName = 'dcqs7fphe';
@@ -51,7 +54,10 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
 
   Future<void> _addStadium() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isLoading = true);
+
+    final stadiumCubit = context.read<StadiumCubit>();
+    final authCubit = context.read<AuthCubit>();
+    final currentUser = authCubit.currentUser;
 
     try {
       String imageUrl = '';
@@ -59,87 +65,128 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
         imageUrl = await _uploadToCloudinary(_imageFile!);
       }
 
-      await FirebaseFirestore.instance.collection('stadiums').add({
-        'name': _nameController.text,
-        'city': _cityController.text,
-        'address': _addressController.text,
-        'pricePerHour': double.parse(_priceController.text),
-        'imageUrl': imageUrl,
-        'createdAt': Timestamp.now(),
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Stadium added successfully!')),
+      stadiumCubit.createStadium(
+        name: _nameController.text.trim(),
+        city: _cityController.text.trim(),
+        address: _addressController.text.trim(),
+        capacity: int.tryParse(_capacityController.text.trim()) ?? 100,
+        pricePerHour: double.parse(_priceController.text.trim()),
+        imageUrl: imageUrl,
+        userId: currentUser?.uid,
       );
-      _formKey.currentState!.reset();
-      setState(() => _imageFile = null);
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add stadium: $e')),
+        SnackBar(content: Text('Failed to upload image: $e')),
       );
-    } finally {
-      setState(() => _isLoading = false);
     }
   }
 
   @override
+  void dispose() {
+    _nameController.dispose();
+    _cityController.dispose();
+    _addressController.dispose();
+    _priceController.dispose();
+    _capacityController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        appBar: AppBar(title: const Text('Add Stadium')),
-        body: Padding(
-          padding: const EdgeInsets.all(16),
-          child: _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : Form(
-            key: _formKey,
-            child: ListView(
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  decoration: const InputDecoration(labelText: 'Stadium Name'),
-                  validator: (v) => v!.isEmpty ? 'Enter name' : null,
-                ),
-                TextFormField(
-                  controller: _cityController,
-                  decoration: const InputDecoration(labelText: 'City'),
-                  validator: (v) => v!.isEmpty ? 'Enter city' : null,
-                ),
-                TextFormField(
-                  controller: _addressController,
-                  decoration: const InputDecoration(labelText: 'Address'),
-                  validator: (v) => v!.isEmpty ? 'Enter address' : null,
-                ),
-                TextFormField(
-                  controller: _priceController,
-                  decoration: const InputDecoration(labelText: 'Price per hour'),
-                  keyboardType: TextInputType.number,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Enter price';
-                    if (double.tryParse(v) == null) return 'Enter a valid number';
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 10),
-                _imageFile != null
-                    ? Image.file(_imageFile!, height: 150)
-                    : const Text('No image selected'),
-                TextButton.icon(
-                  onPressed: _pickImage,
-                  icon: const Icon(Icons.image),
-                  label: const Text('Pick Image'),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: _addStadium,
-                  child: const Text('Add Stadium'),
-                ),
-              ],
+    return BlocConsumer<StadiumCubit, StadiumState>(
+      listener: (context, state) {
+        if (state is StadiumOperationSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+          _formKey.currentState?.reset();
+          setState(() => _imageFile = null);
+        } else if (state is StadiumError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.message)),
+          );
+        }
+      },
+      builder: (context, state) {
+        final isLoading = state is StadiumLoading;
+
+        return GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            appBar: AppBar(title: const Text('Add Stadium')),
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : Form(
+                      key: _formKey,
+                      child: ListView(
+                        children: [
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(labelText: 'Stadium Name'),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Enter name' : null,
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _cityController,
+                            decoration: const InputDecoration(labelText: 'City'),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Enter city' : null,
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _addressController,
+                            decoration: const InputDecoration(labelText: 'Address'),
+                            validator: (v) => v == null || v.trim().isEmpty ? 'Enter address' : null,
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _capacityController,
+                            decoration: const InputDecoration(labelText: 'Capacity'),
+                            keyboardType: TextInputType.number,
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Enter capacity';
+                              if (int.tryParse(v) == null) return 'Enter a valid number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _priceController,
+                            decoration: const InputDecoration(labelText: 'Price per hour'),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'Enter price';
+                              if (double.tryParse(v) == null) return 'Enter a valid number';
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          _imageFile != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.file(_imageFile!, height: 150, fit: BoxFit.cover),
+                                )
+                              : const Text('No image selected'),
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: isLoading ? null : _pickImage,
+                            icon: const Icon(Icons.image),
+                            label: const Text('Pick Image'),
+                          ),
+                          const SizedBox(height: 20),
+                          ElevatedButton(
+                            onPressed: isLoading ? null : _addStadium,
+                            child: const Text('Add Stadium'),
+                          ),
+                        ],
+                      ),
+                    ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -17,6 +17,10 @@ import 'package:yourleague/User/features/shop/presentation/cubits/shop_cubit.dar
 import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dart';
 import 'package:yourleague/User/features/matches/data/firebase_matches_repo.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_cubit.dart';
+import 'package:yourleague/Stadiums/data/firebase_stadium_repo.dart';
+import 'package:yourleague/Stadiums/data/firebase_rental_repo.dart';
+import 'package:yourleague/Stadiums/presentation/cubits/stadium_cubit.dart';
+import 'package:yourleague/Stadiums/presentation/cubits/rental_cubit.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
@@ -77,6 +81,16 @@ class MyApp extends StatelessWidget {
         // Handles matches and tournaments
         BlocProvider<MatchesCubit>(
           create: (context) => MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
+        ),
+
+        // Handles stadiums (create, read, update, delete)
+        BlocProvider<StadiumCubit>(
+          create: (context) => StadiumCubit(stadiumRepo: FirebaseStadiumRepo()),
+        ),
+
+        // Handles stadium rentals (bookings, conflicts, status)
+        BlocProvider<RentalCubit>(
+          create: (context) => RentalCubit(rentalRepo: FirebaseRentalRepo()),
         ),
 
       ],
