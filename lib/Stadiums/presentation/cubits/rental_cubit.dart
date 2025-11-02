@@ -2,12 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/stadium_rental.dart';
 import '../../domain/repos/rental_repo.dart';
+import '../../domain/errors/stadium_exceptions.dart';
 import 'rental_states.dart';
 
 class RentalCubit extends Cubit<RentalState> {
   final RentalRepo rentalRepo;
+  String? _currentUserId; // Track current user for security checks
 
   RentalCubit({required this.rentalRepo}) : super(RentalInitial());
+
+  void setCurrentUserId(String? userId) {
+    _currentUserId = userId;
+  }
 
   // Create rental
   Future<void> createRental({
@@ -48,8 +54,12 @@ class RentalCubit extends Cubit<RentalState> {
 
       await rentalRepo.createRental(rental);
       emit(RentalOperationSuccess('Rental created successfully'));
+    } on StadiumConflictException catch (e) {
+      emit(RentalConflictDetected(e.message));
+    } on StadiumValidationException catch (e) {
+      emit(RentalError(e.message));
     } catch (e) {
-      emit(RentalError('Failed to create rental: $e'));
+      emit(RentalError('Failed to create rental: ${e.toString()}'));
     }
   }
 
@@ -143,25 +153,57 @@ class RentalCubit extends Cubit<RentalState> {
     }
   }
 
-  // Update rental status
+  // Update rental status (with security check)
   Future<void> updateRentalStatus(String rentalId, String status) async {
     try {
       emit(RentalLoading());
+
+      // Security check: Verify user can modify this rental
+      final rental = await rentalRepo.getRental(rentalId);
+      if (rental == null) {
+        emit(RentalError('Rental not found'));
+        return;
+      }
+
+      if (!rental.canModify(_currentUserId)) {
+        emit(RentalError('You do not have permission to update this rental'));
+        return;
+      }
+
       await rentalRepo.updateRentalStatus(rentalId, status);
       emit(RentalOperationSuccess('Rental status updated successfully'));
+    } on StadiumPermissionException catch (e) {
+      emit(RentalError(e.message));
+    } on StadiumValidationException catch (e) {
+      emit(RentalError(e.message));
     } catch (e) {
-      emit(RentalError('Failed to update rental status: $e'));
+      emit(RentalError('Failed to update rental status: ${e.toString()}'));
     }
   }
 
-  // Delete rental
+  // Delete rental (with security check)
   Future<void> deleteRental(String rentalId) async {
     try {
       emit(RentalLoading());
+
+      // Security check: Verify user can modify this rental
+      final rental = await rentalRepo.getRental(rentalId);
+      if (rental == null) {
+        emit(RentalError('Rental not found'));
+        return;
+      }
+
+      if (!rental.canModify(_currentUserId)) {
+        emit(RentalError('You do not have permission to delete this rental'));
+        return;
+      }
+
       await rentalRepo.deleteRental(rentalId);
       emit(RentalOperationSuccess('Rental deleted successfully'));
+    } on StadiumPermissionException catch (e) {
+      emit(RentalError(e.message));
     } catch (e) {
-      emit(RentalError('Failed to delete rental: $e'));
+      emit(RentalError('Failed to delete rental: ${e.toString()}'));
     }
   }
 }

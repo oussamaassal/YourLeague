@@ -135,11 +135,11 @@ class _OfferedStadiumsTab extends StatelessWidget {
                   ),
                   child: ListTile(
                     onLongPress: () => _deleteStadium(context, stadium),
-                    leading: stadium.imageUrl.isNotEmpty
+                    leading: stadium.imageUrls.isNotEmpty
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(10),
                             child: Image.network(
-                              stadium.imageUrl,
+                              stadium.imageUrl, // Using getter for first image
                               width: 70,
                               height: 70,
                               fit: BoxFit.cover,
@@ -339,8 +339,8 @@ class _OfferedStadiumsTab extends StatelessWidget {
                           const SizedBox(height: 12),
                           imageFile != null
                               ? Image.file(imageFile!, height: 120)
-                              : (stadium.imageUrl.isNotEmpty
-                                  ? Image.network(stadium.imageUrl,
+                              : (stadium.imageUrls.isNotEmpty
+                                  ? Image.network(stadium.imageUrl, // Using getter
                                       height: 120, fit: BoxFit.cover)
                                   : const Icon(Icons.image_outlined, size: 60)),
                           TextButton.icon(
@@ -363,9 +363,15 @@ class _OfferedStadiumsTab extends StatelessWidget {
                                     setState(() => saving = true);
 
                                     try {
-                                      String newImageUrl = stadium.imageUrl;
+                                      List<String> imageUrls = List.from(stadium.imageUrls);
                                       if (imageFile != null) {
-                                        newImageUrl = await _uploadToCloudinary(imageFile!);
+                                        final newImageUrl = await _uploadToCloudinary(imageFile!);
+                                        // Replace first image or add if empty
+                                        if (imageUrls.isEmpty) {
+                                          imageUrls.add(newImageUrl);
+                                        } else {
+                                          imageUrls[0] = newImageUrl;
+                                        }
                                       }
 
                                       final updatedStadium = Stadium(
@@ -375,8 +381,12 @@ class _OfferedStadiumsTab extends StatelessWidget {
                                         address: addressController.text.trim(),
                                         capacity: int.parse(capacityController.text.trim()),
                                         pricePerHour: double.parse(priceController.text.trim()),
-                                        imageUrl: newImageUrl,
+                                        imageUrls: imageUrls,
                                         userId: stadium.userId,
+                                        latitude: stadium.latitude,
+                                        longitude: stadium.longitude,
+                                        phoneNumber: stadium.phoneNumber,
+                                        description: stadium.description,
                                         createdAt: stadium.createdAt,
                                       );
 

@@ -85,12 +85,30 @@ class MyApp extends StatelessWidget {
 
         // Handles stadiums (create, read, update, delete)
         BlocProvider<StadiumCubit>(
-          create: (context) => StadiumCubit(stadiumRepo: FirebaseStadiumRepo()),
+          create: (context) {
+            final cubit = StadiumCubit(stadiumRepo: FirebaseStadiumRepo());
+            // Set current user ID when auth state changes
+            final authCubit = context.read<AuthCubit>();
+            final user = authCubit.currentUser;
+            if (user != null) {
+              cubit.setCurrentUserId(user.uid);
+            }
+            return cubit;
+          },
         ),
 
         // Handles stadium rentals (bookings, conflicts, status)
         BlocProvider<RentalCubit>(
-          create: (context) => RentalCubit(rentalRepo: FirebaseRentalRepo()),
+          create: (context) {
+            final cubit = RentalCubit(rentalRepo: FirebaseRentalRepo());
+            // Set current user ID when auth state changes
+            final authCubit = context.read<AuthCubit>();
+            final user = authCubit.currentUser;
+            if (user != null) {
+              cubit.setCurrentUserId(user.uid);
+            }
+            return cubit;
+          },
         ),
 
       ],

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import '../errors/stadium_exceptions.dart';
 
 class StadiumRental {
   final String id;
@@ -21,7 +22,36 @@ class StadiumRental {
     required this.hours,
     this.status = 'pending',
     required this.createdAt,
-  });
+  }) {
+    // Validation
+    if (stadiumId.trim().isEmpty) {
+      throw StadiumValidationException('Stadium ID cannot be empty');
+    }
+    if (stadiumName.trim().isEmpty) {
+      throw StadiumValidationException('Stadium name cannot be empty');
+    }
+    if (hours <= 0 || hours > 24) {
+      throw StadiumValidationException('Hours must be between 1 and 24');
+    }
+    if (!['pending', 'confirmed', 'cancelled'].contains(status)) {
+      throw StadiumValidationException('Invalid status: $status');
+    }
+    
+    final now = DateTime.now();
+    final rentalDate = rentalDateTime.toDate();
+    if (rentalDate.isBefore(now.subtract(const Duration(hours: 1)))) {
+      throw StadiumValidationException('Rental date cannot be in the past');
+    }
+  }
+
+  // Check if user is renter
+  bool isRenter(String? userId) => renterId != null && renterId == userId;
+
+  // Check if user is owner
+  bool isOwner(String? userId) => ownerId != null && ownerId == userId;
+
+  // Check if user can modify this rental
+  bool canModify(String? userId) => isRenter(userId) || isOwner(userId);
 
   factory StadiumRental.fromJson(Map<String, dynamic> json) {
     return StadiumRental(

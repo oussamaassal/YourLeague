@@ -22,17 +22,35 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
   final _addressController = TextEditingController();
   final _priceController = TextEditingController();
   final _capacityController = TextEditingController(text: '100');
+  final _phoneController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _latitudeController = TextEditingController();
+  final _longitudeController = TextEditingController();
 
-  File? _imageFile;
+  List<File> _imageFiles = []; // Multiple images support
 
   // 🟦 Your Cloudinary credentials
   final String cloudName = 'dcqs7fphe';
   final String uploadPreset = 'YourLeague'; // safer for client use
 
-  Future<void> _pickImage() async {
+  Future<void> _pickImages() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickMultiImage();
+    if (picked.isNotEmpty) {
+      setState(() {
+        _imageFiles.addAll(picked.map((p) => File(p.path)));
+      });
+    }
+  }
+
+  Future<void> _pickSingleImage() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked != null) setState(() => _imageFile = File(picked.path));
+    if (picked != null) {
+      setState(() {
+        _imageFiles.add(File(picked.path));
+      });
+    }
   }
 
   Future<String> _uploadToCloudinary(File imageFile) async {
@@ -60,9 +78,11 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
     final currentUser = authCubit.currentUser;
 
     try {
-      String imageUrl = '';
-      if (_imageFile != null) {
-        imageUrl = await _uploadToCloudinary(_imageFile!);
+      List<String> imageUrls = [];
+      // Upload all images
+      for (final imageFile in _imageFiles) {
+        final url = await _uploadToCloudinary(imageFile);
+        imageUrls.add(url);
       }
 
       stadiumCubit.createStadium(
@@ -71,8 +91,20 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
         address: _addressController.text.trim(),
         capacity: int.tryParse(_capacityController.text.trim()) ?? 100,
         pricePerHour: double.parse(_priceController.text.trim()),
-        imageUrl: imageUrl,
+        imageUrls: imageUrls,
         userId: currentUser?.uid,
+        latitude: _latitudeController.text.trim().isEmpty
+            ? null
+            : double.tryParse(_latitudeController.text.trim()),
+        longitude: _longitudeController.text.trim().isEmpty
+            ? null
+            : double.tryParse(_longitudeController.text.trim()),
+        phoneNumber: _phoneController.text.trim().isEmpty
+            ? null
+            : _phoneController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
       );
     } catch (e) {
       if (!mounted) return;
@@ -89,6 +121,10 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
     _addressController.dispose();
     _priceController.dispose();
     _capacityController.dispose();
+    _phoneController.dispose();
+    _descriptionController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
     super.dispose();
   }
 
@@ -101,7 +137,13 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
             SnackBar(content: Text(state.message)),
           );
           _formKey.currentState?.reset();
-          setState(() => _imageFile = null);
+          setState(() {
+            _imageFiles.clear();
+            _phoneController.clear();
+            _descriptionController.clear();
+            _latitudeController.clear();
+            _longitudeController.clear();
+          });
         } else if (state is StadiumError) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.message)),
@@ -163,17 +205,109 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
                             },
                           ),
                           const SizedBox(height: 16),
-                          _imageFile != null
-                              ? ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.file(_imageFile!, height: 150, fit: BoxFit.cover),
-                                )
-                              : const Text('No image selected'),
+                          // Multiple Images
+                          if (_imageFiles.isNotEmpty)
+                            SizedBox(
+                              height: 150,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _imageFiles.length,
+                                itemBuilder: (context, index) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: Stack(
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(8),
+                                          child: Image.file(
+                                            _imageFiles[index],
+                                            width: 150,
+                                            height: 150,
+                                            fit: BoxFit.cover,
+                                          ),
+                                        ),
+                                        Positioned(
+                                          top: 4,
+                                          right: 4,
+                                          child: CircleAvatar(
+                                            radius: 12,
+                                            backgroundColor: Colors.red,
+                                            child: IconButton(
+                                              padding: EdgeInsets.zero,
+                                              iconSize: 16,
+                                              icon: const Icon(Icons.close, color: Colors.white),
+                                              onPressed: isLoading
+                                                  ? null
+                                                  : () {
+                                                      setState(() {
+                                                        _imageFiles.removeAt(index);
+                                                      });
+                                                    },
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            )
+                          else
+                            const Text('No images selected'),
                           const SizedBox(height: 8),
-                          TextButton.icon(
-                            onPressed: isLoading ? null : _pickImage,
-                            icon: const Icon(Icons.image),
-                            label: const Text('Pick Image'),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextButton.icon(
+                                  onPressed: isLoading ? null : _pickSingleImage,
+                                  icon: const Icon(Icons.image),
+                                  label: const Text('Add Image'),
+                                ),
+                              ),
+                              Expanded(
+                                child: TextButton.icon(
+                                  onPressed: isLoading ? null : _pickImages,
+                                  icon: const Icon(Icons.photo_library),
+                                  label: const Text('Add Multiple'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          // Additional Fields
+                          TextFormField(
+                            controller: _phoneController,
+                            decoration: const InputDecoration(labelText: 'Phone Number (Optional)'),
+                            keyboardType: TextInputType.phone,
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _descriptionController,
+                            decoration: const InputDecoration(labelText: 'Description (Optional)'),
+                            maxLines: 3,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _latitudeController,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Latitude (Optional)'),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(decimal: true),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _longitudeController,
+                                  decoration: const InputDecoration(
+                                      labelText: 'Longitude (Optional)'),
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(decimal: true),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(
