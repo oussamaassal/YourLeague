@@ -22,6 +22,46 @@ class FirebaseTeamsRepo implements TeamsRepo {
       createdAt: (m['createdAt'] as Timestamp).toDate(),
     );
   }
+// Toggle visibility (owner only – enforce in UI)
+  Future<void> setTeamVisibility({
+    required String teamId,
+    required bool isPublic,
+  }) {
+    return _teams.doc(teamId).update({'isPublic': isPublic});
+  }
+
+// Join behavior used by QR or other “quick-join” entry points
+// If public → immediately add as member
+// If private → file a join request
+  Future<void> joinViaQuickPath({
+    required String teamId,
+    required String userId,
+  }) async {
+    final teamSnap = await _teams.doc(teamId).get();
+    if (!teamSnap.exists) return;
+
+    final isPublic = (teamSnap.data()?['isPublic'] ?? true) as bool;
+    if (isPublic) {
+      // check if already member
+      final mems = await _teams.doc(teamId).collection('members')
+          .where('userId', isEqualTo: userId).limit(1).get();
+      if (mems.docs.isEmpty) {
+        await _teams.doc(teamId).collection('members').add({
+          'userId': userId,
+          'role': 'player',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+    } else {
+      // private → create/overwrite pending request
+      await _teams.doc(teamId).collection('join_requests').doc(userId).set({
+        'userId': userId,
+        'message': '',
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
 
   // ───────────────── Teams for current user (owner OR member) ─────────────────
   // We assume when creating a team we also add the owner to /members with role "owner".

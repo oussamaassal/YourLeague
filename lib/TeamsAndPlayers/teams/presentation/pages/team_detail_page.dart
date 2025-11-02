@@ -8,8 +8,12 @@ import '../../domain/entities.dart';
 import '../cubits/members_cubit.dart';
 import '../cubits/requests_cubit.dart';
 
-// ⬇️ Players finder page
+// Players finder
 import '../../../players/presentation/pages/find_players_page.dart';
+
+// NEW: QR pages
+import 'team_qr_page.dart';          // make sure this file exists from earlier step
+import 'qr_scan_join_page.dart';     // optional (for navigation elsewhere)
 
 class TeamDetailPage extends StatelessWidget {
   final String teamId;
@@ -42,7 +46,6 @@ class TeamDetailPage extends StatelessWidget {
                 if (state is! MembersLoaded) return const SizedBox.shrink();
 
                 final members = state.members;
-                // Determine if current user is owner or organizer in THIS team
                 final me = members.firstWhere(
                       (m) => m.userId == myUid,
                   orElse: () => Member(
@@ -52,16 +55,14 @@ class TeamDetailPage extends StatelessWidget {
                     createdAt: DateTime(1970),
                   ),
                 );
-                final isManager =
-                    me.role == MemberRole.owner || me.role == MemberRole.organizer;
-
+                final isManager = me.role == MemberRole.owner || me.role == MemberRole.organizer;
                 if (!isManager) return const SizedBox.shrink();
 
                 return IconButton(
                   tooltip: 'Find players',
                   icon: const Icon(Icons.person_search),
                   onPressed: () async {
-                    // 1) Fetch team category once (we only have teamId here)
+                    // 1) get team category
                     final snap = await FirebaseFirestore.instance
                         .collection('teams')
                         .doc(teamId)
@@ -79,7 +80,7 @@ class TeamDetailPage extends StatelessWidget {
                     final catStr = (snap.data()!['category'] ?? 'other') as String;
                     final teamCat = teamCategoryFromString(catStr);
 
-                    // 2) Collect current member userIds to exclude from search results
+                    // 2) current member userIds
                     final currentState = context.read<MembersCubit>().state;
                     final userIds = <String>{};
                     if (currentState is MembersLoaded) {
@@ -88,7 +89,7 @@ class TeamDetailPage extends StatelessWidget {
                       }
                     }
 
-                    // 3) Navigate to FindPlayersPage
+                    // 3) push finder
                     if (context.mounted) {
                       Navigator.push(
                         context,
@@ -109,6 +110,11 @@ class TeamDetailPage extends StatelessWidget {
         ),
         body: Column(
           children: [
+            // ───────── NEW: Visibility toggle + QR button (owner only) ─────────
+            _VisibilityAndQrBar(teamId: teamId, isOwner: myUid == ownerUid),
+
+            const Divider(height: 1),
+
             // ───────── Members list ─────────
             Expanded(
               child: BlocBuilder<MembersCubit, MembersState>(
@@ -130,10 +136,7 @@ class TeamDetailPage extends StatelessWidget {
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
                       final m = members[i];
-
-                      final display =
-                      m.userId.contains('@') ? m.userId.split('@').first : m.userId;
-
+                      final display = m.userId.contains('@') ? m.userId.split('@').first : m.userId;
                       final isOwner = m.role == MemberRole.owner;
                       final amOwner = myUid == ownerUid;
 
@@ -157,17 +160,13 @@ class TeamDetailPage extends StatelessWidget {
                                   .toList(),
                               onChanged: (r) {
                                 if (r != null) {
-                                  context
-                                      .read<MembersCubit>()
-                                      .changeRole(teamId, m.id, r);
+                                  context.read<MembersCubit>().changeRole(teamId, m.id, r);
                                 }
                               },
                             ),
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: () => context
-                                  .read<MembersCubit>()
-                                  .remove(teamId, m.id),
+                              onPressed: () => context.read<MembersCubit>().remove(teamId, m.id),
                             ),
                           ],
                         )
@@ -188,6 +187,70 @@ class TeamDetailPage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Small header with a live Public/Private switch and a "Show team QR" button (owner only)
+class _VisibilityAndQrBar extends StatelessWidget {
+  final String teamId;
+  final bool isOwner;
+  const _VisibilityAndQrBar({required this.teamId, required this.isOwner});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isOwner) return const SizedBox.shrink();
+
+    final repo = FirebaseTeamsRepo();
+
+    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance.collection('teams').doc(teamId).snapshots(),
+      builder: (context, snap) {
+        if (!snap.hasData || !snap.data!.exists) {
+          return const SizedBox.shrink();
+        }
+        final data = snap.data!.data()!;
+        final isPublic = (data['isPublic'] ?? true) as bool;
+
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: SwitchListTile(
+                  title: const Text('Public team'),
+                  subtitle: Text(
+                    isPublic ? 'Visible + instant join via QR' : 'Hidden • scan → join request',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  value: isPublic,
+                  onChanged: isOwner
+                      ? (v) async {
+                    await repo.setTeamVisibility(teamId: teamId, isPublic: v);
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Team is now ${v ? 'Public' : 'Private'}')),
+                      );
+                    }
+                  }
+                      : null,
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                icon: const Icon(Icons.qr_code_2),
+                label: const Text('Show team QR'),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => TeamQrPage(teamId: teamId)),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -226,8 +289,7 @@ class _RequestsPanelState extends State<_RequestsPanel> {
         if (pending.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(12),
-            child:
-            Align(alignment: Alignment.centerLeft, child: Text('No pending requests')),
+            child: Align(alignment: Alignment.centerLeft, child: Text('No pending requests')),
           );
         }
 
@@ -267,9 +329,7 @@ class _RequestsPanelState extends State<_RequestsPanel> {
                           icon: const Icon(Icons.close),
                           tooltip: 'Decline',
                           onPressed: () async {
-                            await context
-                                .read<RequestsCubit>()
-                                .respond(widget.teamId, uid, false);
+                            await context.read<RequestsCubit>().respond(widget.teamId, uid, false);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Request declined')),
@@ -282,19 +342,12 @@ class _RequestsPanelState extends State<_RequestsPanel> {
                           tooltip: 'Accept',
                           onPressed: () async {
                             final picked = _selectedRole[uid] ?? MemberRole.player;
-                            await context.read<RequestsCubit>().respond(
-                              widget.teamId,
-                              uid,
-                              true,
-                              roleIfAccept: picked,
-                            );
+                            await context
+                                .read<RequestsCubit>()
+                                .respond(widget.teamId, uid, true, roleIfAccept: picked);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Accepted as ${memberRoleToString(picked)}',
-                                  ),
-                                ),
+                                SnackBar(content: Text('Accepted as ${memberRoleToString(picked)}')),
                               );
                             }
                           },

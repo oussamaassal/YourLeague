@@ -4,12 +4,13 @@ import 'package:yourleague/User/features/chat/presentation/pages/friends_page.da
 import 'package:yourleague/User/features/profile/profile_page.dart';
 import 'package:yourleague/User/features/settings/presentation/settings_page.dart';
 import '../features/auth/presentation/cubits/auth_cubit.dart';
-/*import '../features/profile/profile_page.dart';
-import '../features/settings/presentation/settings_page.dart';*/
 import 'drawer_tile.dart';
-import 'package:yourleague/User/features/teams/presentation/pages/teams_page.dart';
-import 'package:yourleague/User/features/players/presentation/pages/player_profile_page.dart';
-import 'package:yourleague/User/features/players/presentation/pages/my_invites_page.dart';
+import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/teams_page.dart';
+import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/player_profile_page.dart';
+import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/my_invites_page.dart';
+
+// NEW: QR scan page
+import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/qr_scan_join_page.dart';
 
 class MyDrawer extends StatelessWidget {
   const MyDrawer({super.key});
@@ -108,6 +109,7 @@ class MyDrawer extends StatelessWidget {
                 );
               },
             ),
+
             MyDrawerTile(
               text: "Teams",
               icon: Icons.groups,
@@ -119,14 +121,19 @@ class MyDrawer extends StatelessWidget {
                 );
               },
             ),
+
             MyDrawerTile(
               text: "Player Profile",
               icon: Icons.sports_volleyball_outlined,
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerProfilePage()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PlayerProfilePage()),
+                );
               },
             ),
+
             MyDrawerTile(
               text: "Invites",
               icon: Icons.group_add,
@@ -138,6 +145,20 @@ class MyDrawer extends StatelessWidget {
                 );
               },
             ),
+
+            // NEW: Scan QR to Join
+            MyDrawerTile(
+              text: "Scan QR to Join",
+              icon: Icons.qr_code_scanner,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QrScanJoinPage()),
+                );
+              },
+            ),
+
             // settings tile
             MyDrawerTile(
               text: "Settings",
