@@ -17,11 +17,23 @@ class FirebaseChatRepo implements ChatRepo {
     final String currentUserEmail = _firebaseAuth.currentUser!.email.toString();
     final Timestamp timestamp = Timestamp.now();
 
+    // 2. Fetch the receiver's user document from the 'users' collection
+    DocumentSnapshot receiverDoc =
+    await _firestore.collection('users').doc(receiverId).get();
+
+    // Check if the document exists to avoid errors
+    if (!receiverDoc.exists) {
+      throw Exception("Receiver user not found in the database.");
+    }
+    // Extract the email from the document data
+    final String receiverEmail = receiverDoc.get('email');
+
     // create a new message using the Message entity
     final Message newMessage = Message(
       senderId: currentUserId,
       senderEmail: currentUserEmail,
       receiverId: receiverId,
+      receiverEmail: receiverEmail,
       message: message,
       timestamp: timestamp,
     );

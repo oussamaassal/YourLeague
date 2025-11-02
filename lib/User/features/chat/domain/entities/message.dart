@@ -4,6 +4,7 @@ class Message {
   final String senderId;
   final String senderEmail;
   final String receiverId;
+  final String receiverEmail;
   final String message;
   final Timestamp timestamp;
 
@@ -11,6 +12,7 @@ class Message {
     required this.senderId,
     required this.senderEmail,
     required this.receiverId,
+    required this.receiverEmail,
     required this.message,
     required this.timestamp,
   });
@@ -21,6 +23,7 @@ class Message {
       'senderId': senderId,
       'senderEmail': senderEmail,
       'receiverId': receiverId,
+      'receiverEmail': receiverEmail,
       'message': message,
       'timestamp': timestamp,
     };
@@ -33,6 +36,7 @@ class Message {
       senderId: json['senderId'],
       senderEmail: json['senderEmail'],
       receiverId: json['receiverId'],
+      receiverEmail: json['receiverEmail'],
       message: json['message'],
       timestamp: json['timestamp'],
     );
