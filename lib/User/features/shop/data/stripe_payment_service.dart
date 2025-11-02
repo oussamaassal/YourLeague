@@ -4,8 +4,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 
 class StripePaymentService {
-  // Replace with your actual backend URL that creates PaymentIntent
-  static const String _backendUrl = 'https://your-backend-url.com';
+  static const String _backendUrl = 'http://10.0.2.2:3000';
 
   // Initialize Stripe with your publishable key
   static Future<void> initialize() async {
