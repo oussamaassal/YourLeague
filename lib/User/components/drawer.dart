@@ -8,6 +8,13 @@ import 'package:yourleague/User/themes/light_mode.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import '../features/auth/presentation/cubits/auth_cubit.dart';
 import 'drawer_tile.dart';
+import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/teams_page.dart';
+import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/player_profile_page.dart';
+import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/my_invites_page.dart';
+
+// NEW: QR scan page
+import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/qr_scan_join_page.dart';
+
 
 class MyDrawer extends StatelessWidget {
   const MyDrawer({super.key});
@@ -160,7 +167,54 @@ class MyDrawer extends StatelessWidget {
                 );
               },
             ),
+            MyDrawerTile(
+              text: "Teams",
+              icon: Icons.groups,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const TeamsPage()),
+                );
+              },
+            ),
 
+            MyDrawerTile(
+              text: "Player Profile",
+              icon: Icons.sports_volleyball_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PlayerProfilePage()),
+                );
+              },
+            ),
+
+            MyDrawerTile(
+              text: "Invites",
+              icon: Icons.group_add,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyInvitesPage()),
+                );
+              },
+            ),
+
+            // NEW: Scan QR to Join
+            MyDrawerTile(
+              text: "Scan QR to Join",
+              icon: Icons.qr_code_scanner,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const QrScanJoinPage()),
+                );
+              },
+            ),
             // settings tile
             MyDrawerTile(
               text: "Settings",

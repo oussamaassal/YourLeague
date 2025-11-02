@@ -104,6 +104,13 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
                         ),
                       ),
                       IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () {
+                          _showModifierDialog(context, state.leaderboards);
+                        },
+                        tooltip: 'Modify Leaderboard',
+                      ),
+                      IconButton(
                         icon: const Icon(Icons.refresh),
                         onPressed: () {
                           context.read<MatchesCubit>().getLeaderboardsByTournament(widget.tournamentId);
@@ -329,6 +336,53 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
               foregroundColor: Colors.white,
             ),
             child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  void _showModifierDialog(BuildContext context, List<Leaderboard> leaderboards) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modify Leaderboard'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Text('Select a team to modify:'),
+              const SizedBox(height: 16),
+              ...leaderboards.map((leaderboard) => 
+                ListTile(
+                  title: Text(leaderboard.teamName),
+                  subtitle: Text('Pts: ${leaderboard.points} | MP: ${leaderboard.matchesPlayed}'),
+                  trailing: const Icon(Icons.edit),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditTeamDialog(context, leaderboard);
+                  },
+                )
+              ).toList(),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) => AddLeaderboardDialog(tournamentId: widget.tournamentId),
+                  );
+                },
+                child: const Text('Add New Team'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
           ),
         ],
       ),
