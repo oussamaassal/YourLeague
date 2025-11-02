@@ -8,7 +8,8 @@ import '../features/auth/presentation/cubits/auth_cubit.dart';
 import '../features/settings/presentation/settings_page.dart';*/
 import 'drawer_tile.dart';
 import 'package:yourleague/User/features/teams/presentation/pages/teams_page.dart';
-
+import 'package:yourleague/User/features/players/presentation/pages/player_profile_page.dart';
+import 'package:yourleague/User/features/players/presentation/pages/my_invites_page.dart';
 
 class MyDrawer extends StatelessWidget {
   const MyDrawer({super.key});
@@ -118,7 +119,25 @@ class MyDrawer extends StatelessWidget {
                 );
               },
             ),
-
+            MyDrawerTile(
+              text: "Player Profile",
+              icon: Icons.sports_volleyball_outlined,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const PlayerProfilePage()));
+              },
+            ),
+            MyDrawerTile(
+              text: "Invites",
+              icon: Icons.group_add,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MyInvitesPage()),
+                );
+              },
+            ),
             // settings tile
             MyDrawerTile(
               text: "Settings",

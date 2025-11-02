@@ -60,3 +60,4 @@ class PlayerStats {
     required this.updatedAt,
   });
 }
+

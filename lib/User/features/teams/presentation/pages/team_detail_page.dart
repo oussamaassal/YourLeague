@@ -1,68 +1,173 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../data/firebase_teams_repo.dart';
 import '../../domain/entities.dart';
 import '../cubits/members_cubit.dart';
 import '../cubits/requests_cubit.dart';
 
+// ⬇️ Players finder page
+import '../../../players/presentation/pages/find_players_page.dart';
+
 class TeamDetailPage extends StatelessWidget {
   final String teamId;
   final String ownerUid;
-  const TeamDetailPage({super.key, required this.teamId, required this.ownerUid});
+
+  const TeamDetailPage({
+    super.key,
+    required this.teamId,
+    required this.ownerUid,
+  });
 
   @override
   Widget build(BuildContext context) {
     final repo = FirebaseTeamsRepo();
     final myUid = FirebaseAuth.instance.currentUser!.uid;
-    final isOwner = myUid == ownerUid;
 
     return MultiBlocProvider(
       providers: [
         BlocProvider(create: (_) => MembersCubit(repo)..watch(teamId)),
-        if (isOwner) BlocProvider(create: (_) => RequestsCubit(repo)..watch(teamId)),
+        BlocProvider(create: (_) => RequestsCubit(repo)..watch(teamId)),
       ],
       child: Scaffold(
-        appBar: AppBar(title: const Text('Team')),
+        appBar: AppBar(
+          title: const Text('Team'),
+          actions: [
+            // Show "Find Players" if current user is owner or organizer
+            BlocBuilder<MembersCubit, MembersState>(
+              buildWhen: (p, c) => c is MembersLoaded || c is MembersLoading,
+              builder: (context, state) {
+                if (state is! MembersLoaded) return const SizedBox.shrink();
+
+                final members = state.members;
+                // Determine if current user is owner or organizer in THIS team
+                final me = members.firstWhere(
+                      (m) => m.userId == myUid,
+                  orElse: () => Member(
+                    id: '',
+                    userId: '',
+                    role: MemberRole.player,
+                    createdAt: DateTime(1970),
+                  ),
+                );
+                final isManager =
+                    me.role == MemberRole.owner || me.role == MemberRole.organizer;
+
+                if (!isManager) return const SizedBox.shrink();
+
+                return IconButton(
+                  tooltip: 'Find players',
+                  icon: const Icon(Icons.person_search),
+                  onPressed: () async {
+                    // 1) Fetch team category once (we only have teamId here)
+                    final snap = await FirebaseFirestore.instance
+                        .collection('teams')
+                        .doc(teamId)
+                        .get();
+
+                    if (!snap.exists || snap.data() == null) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Team not found')),
+                        );
+                      }
+                      return;
+                    }
+
+                    final catStr = (snap.data()!['category'] ?? 'other') as String;
+                    final teamCat = teamCategoryFromString(catStr);
+
+                    // 2) Collect current member userIds to exclude from search results
+                    final currentState = context.read<MembersCubit>().state;
+                    final userIds = <String>{};
+                    if (currentState is MembersLoaded) {
+                      for (final m in currentState.members) {
+                        userIds.add(m.userId);
+                      }
+                    }
+
+                    // 3) Navigate to FindPlayersPage
+                    if (context.mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FindPlayersPage(
+                            teamId: teamId,
+                            teamCategory: teamCat,
+                            currentMemberUserIds: userIds,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                );
+              },
+            ),
+          ],
+        ),
         body: Column(
           children: [
+            // ───────── Members list ─────────
             Expanded(
               child: BlocBuilder<MembersCubit, MembersState>(
                 builder: (_, s) {
-                  if (s is MembersLoading) return const Center(child: CircularProgressIndicator());
-                  if (s is MembersError) return Center(child: Text(s.message));
+                  if (s is MembersLoading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (s is MembersError) {
+                    return Center(child: Text(s.message));
+                  }
+
                   final members = (s as MembersLoaded).members;
+                  if (members.isEmpty) {
+                    return const Center(child: Text('No members yet'));
+                  }
+
                   return ListView.separated(
                     itemCount: members.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
                       final m = members[i];
+
+                      final display =
+                      m.userId.contains('@') ? m.userId.split('@').first : m.userId;
+
+                      final isOwner = m.role == MemberRole.owner;
+                      final amOwner = myUid == ownerUid;
+
                       return ListTile(
                         leading: const Icon(Icons.person),
-                        title: Text(m.userId), // TODO: replace with display name
+                        title: Text(display),
                         subtitle: Text(memberRoleToString(m.role)),
-                        trailing: isOwner && m.role != MemberRole.owner
+                        trailing: amOwner && !isOwner
                             ? Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             DropdownButton<MemberRole>(
                               value: m.role,
                               items: MemberRole.values
-                                  .map((r) => DropdownMenuItem(
-                                value: r,
-                                child: Text(memberRoleToString(r)),
-                              ))
+                                  .map(
+                                    (r) => DropdownMenuItem(
+                                  value: r,
+                                  child: Text(memberRoleToString(r)),
+                                ),
+                              )
                                   .toList(),
                               onChanged: (r) {
                                 if (r != null) {
-                                  context.read<MembersCubit>().changeRole(teamId, m.id, r);
+                                  context
+                                      .read<MembersCubit>()
+                                      .changeRole(teamId, m.id, r);
                                 }
                               },
                             ),
                             IconButton(
                               icon: const Icon(Icons.remove_circle_outline),
-                              onPressed: () => context.read<MembersCubit>().remove(teamId, m.id),
+                              onPressed: () => context
+                                  .read<MembersCubit>()
+                                  .remove(teamId, m.id),
                             ),
                           ],
                         )
@@ -73,8 +178,13 @@ class TeamDetailPage extends StatelessWidget {
                 },
               ),
             ),
-            if (isOwner) const Divider(),
-            if (isOwner) Expanded(child: _RequestsPanel(teamId: teamId)),
+
+            const Divider(height: 1),
+
+            // ───────── Join requests (owner only) ─────────
+            Expanded(
+              child: _RequestsPanel(teamId: teamId, ownerUid: ownerUid),
+            ),
           ],
         ),
       ),
@@ -84,7 +194,8 @@ class TeamDetailPage extends StatelessWidget {
 
 class _RequestsPanel extends StatefulWidget {
   final String teamId;
-  const _RequestsPanel({required this.teamId});
+  final String ownerUid;
+  const _RequestsPanel({required this.teamId, required this.ownerUid});
 
   @override
   State<_RequestsPanel> createState() => _RequestsPanelState();
@@ -96,6 +207,9 @@ class _RequestsPanelState extends State<_RequestsPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final myUid = FirebaseAuth.instance.currentUser!.uid;
+    final amOwner = myUid == widget.ownerUid;
+
     return BlocBuilder<RequestsCubit, RequestsState>(
       builder: (_, s) {
         if (s is RequestsLoading) return const Center(child: CircularProgressIndicator());
@@ -105,10 +219,15 @@ class _RequestsPanelState extends State<_RequestsPanel> {
         // Remove selections for uids no longer pending
         _selectedRole.removeWhere((k, v) => !pending.contains(k));
 
+        if (!amOwner) {
+          return const SizedBox.shrink();
+        }
+
         if (pending.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(12),
-            child: Align(alignment: Alignment.centerLeft, child: Text('No pending requests')),
+            child:
+            Align(alignment: Alignment.centerLeft, child: Text('No pending requests')),
           );
         }
 
@@ -148,7 +267,9 @@ class _RequestsPanelState extends State<_RequestsPanel> {
                           icon: const Icon(Icons.close),
                           tooltip: 'Decline',
                           onPressed: () async {
-                            await context.read<RequestsCubit>().respond(widget.teamId, uid, false);
+                            await context
+                                .read<RequestsCubit>()
+                                .respond(widget.teamId, uid, false);
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('Request declined')),
@@ -161,12 +282,19 @@ class _RequestsPanelState extends State<_RequestsPanel> {
                           tooltip: 'Accept',
                           onPressed: () async {
                             final picked = _selectedRole[uid] ?? MemberRole.player;
-                            await context
-                                .read<RequestsCubit>()
-                                .respond(widget.teamId, uid, true, roleIfAccept: picked);
+                            await context.read<RequestsCubit>().respond(
+                              widget.teamId,
+                              uid,
+                              true,
+                              roleIfAccept: picked,
+                            );
                             if (mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Accepted as ${memberRoleToString(picked)}')),
+                                SnackBar(
+                                  content: Text(
+                                    'Accepted as ${memberRoleToString(picked)}',
+                                  ),
+                                ),
                               );
                             }
                           },
