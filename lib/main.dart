@@ -17,6 +17,7 @@ import 'package:yourleague/User/features/shop/presentation/cubits/shop_cubit.dar
 import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dart';
 import 'package:yourleague/User/features/matches/data/firebase_matches_repo.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_cubit.dart';
+import 'package:yourleague/User/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
@@ -79,14 +80,24 @@ class MyApp extends StatelessWidget {
           create: (context) => MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
         ),
 
+        // Handles theme mode switching
+        BlocProvider<ThemeCubit>(
+          create: (context) => ThemeCubit(),
+        ),
+
       ],
 
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Your League',
-        theme: lightMode,
-        darkTheme: darkMode,
-        home: firebaseEnabled ? _buildAppBody() : const WelcomePage(),
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Your League',
+            theme: lightMode,
+            darkTheme: darkMode,
+            themeMode: themeMode,
+            home: firebaseEnabled ? _buildAppBody() : const WelcomePage(),
+          );
+        },
       ),
 
     );
