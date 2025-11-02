@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../../Stadiums/presentation/pages/AdminRentalsPage.dart';
 import '../../../../../Stadiums/presentation/pages/admin_add_stadium_page.dart';
-import '../../../../../Stadiums/presentation/pages/rent_stadium_page.dart';
+import '../../../../../Stadiums/presentation/pages/rentals_landing_page.dart';
 import '../../../../components/drawer.dart';
 import '../../../shop/presentation/pages/products_page.dart';
 import '../../../shop/presentation/pages/cart_page.dart';
@@ -21,7 +21,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 6, vsync: this);
+  late final TabController _tabController = TabController(length: 4, vsync: this);
   int _currentTabIndex = 0;
 
   @override
@@ -93,8 +93,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Tab(text: "Matches"),
                 Tab(text: "Tournaments"),
                 Tab(text: "Shop"),
-                Tab(text: "Add Stadium"),
-                Tab(text: "Rent"),
+                //Tab(text: "Add Stadium"),
+                //Tab(text: "Rent"),
                 Tab(text: "Rentals"),
               ],
             ),
@@ -122,9 +122,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           MatchesPage(),
           TournamentsPage(),
           ProductsPage(showAppBar: false),
-          AdminAddStadiumPage(),
-          RentStadiumPage(),
-          AdminRentalsPage(),
+          //AdminAddStadiumPage(),
+          //RentStadiumPage(),
+          //AdminRentalsPage(),
+          RentalsLandingPage(),
+
         ],
       ),
     );
