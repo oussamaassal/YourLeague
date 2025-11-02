@@ -4,6 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import '../components/map_location_picker.dart';
 import '../cubits/stadium_cubit.dart';
 import '../cubits/stadium_states.dart';
 import '../../../../User/features/auth/presentation/cubits/auth_cubit.dart';
@@ -95,10 +98,10 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
         userId: currentUser?.uid,
         latitude: _latitudeController.text.trim().isEmpty
             ? null
-            : double.tryParse(_latitudeController.text.trim()),
+            : double.parse(_latitudeController.text.trim()),
         longitude: _longitudeController.text.trim().isEmpty
             ? null
-            : double.tryParse(_longitudeController.text.trim()),
+            : double.parse(_longitudeController.text.trim()),
         phoneNumber: _phoneController.text.trim().isEmpty
             ? null
             : _phoneController.text.trim(),
@@ -286,28 +289,63 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
                             maxLines: 3,
                           ),
                           const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _latitudeController,
-                                  decoration: const InputDecoration(
-                                      labelText: 'Latitude (Optional)'),
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(decimal: true),
-                                ),
+                          // Location Picker
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.location_on),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Stadium Location',
+                                        style: Theme.of(context).textTheme.titleMedium,
+                                      ),
+                                      const Spacer(),
+                                      ElevatedButton.icon(
+                                        onPressed: isLoading ? null : () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) => MapLocationPicker(
+                                              initialLatitude: _latitudeController.text.isEmpty
+                                                  ? null
+                                                  : double.tryParse(_latitudeController.text),
+                                              initialLongitude: _longitudeController.text.isEmpty
+                                                  ? null
+                                                  : double.tryParse(_longitudeController.text),
+                                              onLocationPicked: (location) {
+                                                setState(() {
+                                                  _latitudeController.text = location.latitude.toString();
+                                                  _longitudeController.text = location.longitude.toString();
+                                                });
+                                              },
+                                            ),
+                                          );
+                                        },
+                                        icon: const Icon(Icons.map),
+                                        label: const Text('Pick on Map'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty)
+                                    Text(
+                                      'Selected Location: (${_latitudeController.text}, ${_longitudeController.text})',
+                                      style: Theme.of(context).textTheme.bodyMedium,
+                                    )
+                                  else
+                                    Text(
+                                      'No location selected',
+                                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: Theme.of(context).colorScheme.error,
+                                      ),
+                                    ),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _longitudeController,
-                                  decoration: const InputDecoration(
-                                      labelText: 'Longitude (Optional)'),
-                                  keyboardType:
-                                      const TextInputType.numberWithOptions(decimal: true),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                           const SizedBox(height: 20),
                           ElevatedButton(

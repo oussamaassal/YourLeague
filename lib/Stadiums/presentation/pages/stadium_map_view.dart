@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class StadiumMapView extends StatefulWidget {
@@ -19,7 +20,8 @@ class StadiumMapView extends StatefulWidget {
 }
 
 class _StadiumMapViewState extends State<StadiumMapView> {
-  GoogleMapController? _mapController;
+  // Replace with your MapTiler API key
+  final String mapTilerKey = 'ZfU0cdEoyRLyxX6gNxeA';
 
   @override
   Widget build(BuildContext context) {
@@ -29,29 +31,43 @@ class _StadiumMapViewState extends State<StadiumMapView> {
       borderRadius: BorderRadius.circular(12),
       child: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: CameraPosition(
-              target: stadiumLocation,
-              zoom: 15.0,
+          FlutterMap(
+            options: MapOptions(
+              initialCenter: stadiumLocation,
+              initialZoom: 15.0,
             ),
-            markers: {
-              Marker(
-                markerId: const MarkerId('stadium'),
-                position: stadiumLocation,
-                infoWindow: InfoWindow(
-                  title: widget.stadiumName,
-                  snippet: 'Tap to open in Maps',
-                  onTap: () => _openInMaps(),
-                ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://api.maptiler.com/maps/streets/{z}/{x}/{y}.png?key={key}',
+                additionalOptions: {
+                  'key': mapTilerKey,
+                },
               ),
-            },
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-            },
-            mapType: MapType.normal,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: true,
-            onTap: (_) => _openInMaps(),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: stadiumLocation,
+                    width: 40,
+                    height: 40,
+                    child: GestureDetector(
+                      onTap: _openInMaps,
+                      child: Column(
+                        children: [
+                          const Icon(Icons.location_on, color: Colors.red, size: 30),
+                          Text(
+                            widget.stadiumName,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           Positioned(
             top: 8,
@@ -69,7 +85,7 @@ class _StadiumMapViewState extends State<StadiumMapView> {
 
   void _openInMaps() async {
     final uri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=${widget.latitude},${widget.longitude}',
+      'https://www.openstreetmap.org/?mlat=${widget.latitude}&mlon=${widget.longitude}&zoom=15',
     );
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -78,7 +94,6 @@ class _StadiumMapViewState extends State<StadiumMapView> {
 
   @override
   void dispose() {
-    _mapController?.dispose();
     super.dispose();
   }
 }
