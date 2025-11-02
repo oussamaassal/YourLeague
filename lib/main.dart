@@ -19,6 +19,7 @@ import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dar
 import 'package:yourleague/User/features/shop/data/stripe_payment_service.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
+import 'package:yourleague/User/themes/theme_cubit.dart';
 import 'firebase_options.dart';
 
 
@@ -51,13 +52,15 @@ class MyApp extends StatelessWidget {
     return MultiBlocProvider(
       // Set up all state management (BLoC pattern)
       providers: [
-        // Handles user authentication (login/register/logout)
+        BlocProvider<ThemeCubit>(
+          create: (context) => ThemeCubit(),
+        ),
+
         BlocProvider<AuthCubit>(
           create: (context) =>
           AuthCubit(authRepo: FirebaseAuthRepo())..checkAuth(),
         ),
 
-        // Handles blocking users & reporting content
         BlocProvider<ModerationCubit>(
           create: (context) =>
               ModerationCubit(moderationRepo: FirebaseModerationRepo()),
@@ -67,24 +70,27 @@ class MyApp extends StatelessWidget {
             create: (context) => ChatCubit(chatRepo: FirebaseChatRepo())
         ),
 
-        // Handles shop operations (products, orders, transactions)
         BlocProvider<ShopCubit>(
           create: (context) => ShopCubit(shopRepo: FirebaseShopRepo()),
         ),
 
-        // Handles shopping cart
         BlocProvider<CartCubit>(
           create: (context) => CartCubit(),
         ),
 
       ],
 
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'Your League',
-        theme: lightMode,
-        darkTheme: darkMode,
-        home: firebaseEnabled ? _buildAppBody() : const WelcomePage(),
+      child: BlocBuilder<ThemeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Your League',
+            theme: lightMode,
+            darkTheme: darkMode,
+            themeMode: themeMode,
+            home: firebaseEnabled ? _buildAppBody() : const WelcomePage(),
+          );
+        },
       ),
 
     );

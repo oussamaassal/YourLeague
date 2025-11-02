@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../components/drawer.dart';
+import '../../../../themes/theme_cubit.dart';
 import '../../../shop/presentation/pages/products_page.dart';
 import '../../../shop/presentation/pages/cart_page.dart';
 import '../../../shop/presentation/cubits/shop_cubit.dart';
@@ -39,9 +40,26 @@ class _HomePageState extends State<HomePage>
     return Scaffold(
       // APP BAR
       appBar: AppBar(
-        title: const Text("Home page"),
-        foregroundColor: Theme.of(context).colorScheme.primary,
+        title: const Text("YourLeague"),
+        foregroundColor: Colors.white,
         actions: [
+          BlocBuilder<ThemeCubit, ThemeMode>(
+            builder: (context, themeMode) {
+              return IconButton(
+                icon: Icon(
+                  themeMode == ThemeMode.light 
+                    ? Icons.dark_mode_rounded 
+                    : Icons.light_mode_rounded,
+                ),
+                onPressed: () {
+                  context.read<ThemeCubit>().toggleTheme();
+                },
+                tooltip: themeMode == ThemeMode.light 
+                  ? 'Switch to Dark Mode' 
+                  : 'Switch to Light Mode',
+              );
+            },
+          ),
           // Cart Icon with Badge
           IconButton(
             icon: Stack(
