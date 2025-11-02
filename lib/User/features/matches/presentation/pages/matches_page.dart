@@ -5,6 +5,8 @@ import 'package:yourleague/User/features/matches/presentation/cubits/matches_sta
 import 'package:yourleague/User/features/matches/domain/entities/match.dart';
 import 'package:yourleague/User/features/matches/presentation/pages/match_events_page.dart';
 import 'package:intl/intl.dart';
+import 'package:yourleague/User/services/notification_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -87,6 +89,34 @@ class _MatchesPageState extends State<MatchesPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_active),
+                          tooltip: 'Rappel 15 min avant',
+                          onPressed: () async {
+                            final int notifId = match.id.hashCode & 0x7fffffff;
+                            final success = await NotificationService.instance.scheduleMatchReminder(
+                              matchDateTime: match.matchDate.toDate(),
+                              notificationId: notifId,
+                              matchId: match.id,
+                              matchTitle: '${match.team1Name} vs ${match.team2Name}',
+                              title: 'Rappel de match',
+                              reminderMinutes: 15,
+                            );
+                            if (!context.mounted) return;
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Rappel programmé 15 min avant le match')),
+                              );
+                            } else {
+                              final msg = kIsWeb
+                                  ? 'Les rappels locaux ne sont pas disponibles sur le web dans cette build.'
+                                  : 'Rappel non programmé (match trop proche ou passé).';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(msg)),
+                              );
+                            }
+                          },
+                        ),
                         IconButton(
                           icon: const Icon(Icons.event_note),
                           tooltip: 'Match Events',

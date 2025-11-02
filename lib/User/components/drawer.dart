@@ -11,6 +11,7 @@ import 'drawer_tile.dart';
 import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/teams_page.dart';
 import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/player_profile_page.dart';
 import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/my_invites_page.dart';
+import '../features/notifications/presentation/pages/notifications_page.dart';
 
 // NEW: QR scan page
 import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/qr_scan_join_page.dart';
@@ -75,7 +76,8 @@ class MyDrawer extends StatelessWidget {
           ),
         ),
         child: SafeArea(
-          child: Column(
+          child: ListView(
+            padding: EdgeInsets.zero,
             children: [
               // Football-themed header
               Container(
@@ -203,6 +205,19 @@ class MyDrawer extends StatelessWidget {
               },
             ),
 
+            // Notifications tile
+            MyDrawerTile(
+              text: "Notifications",
+              icon: Icons.notifications,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const NotificationsPage()),
+                );
+              },
+            ),
+
             // NEW: Scan QR to Join
             MyDrawerTile(
               text: "Scan QR to Join",
@@ -274,9 +289,6 @@ class MyDrawer extends StatelessWidget {
                 );
               },
             ),
-
-            const Spacer(),
-
             // logout tile
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
