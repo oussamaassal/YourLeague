@@ -537,8 +537,56 @@ class _RentalsListView extends StatelessWidget {
                           ),
                           elevation: 1,
                           child: ListTile(
+                            // Fetch renter info (name/email) to show who made the booking
+                            // Reuse the same future for avatar and subtitle to avoid duplicate reads
+                            leading: rental.renterId == null
+                                ? const CircleAvatar(child: Icon(Icons.person_outline))
+                                : FutureBuilder<fs.DocumentSnapshot<Map<String, dynamic>>>(
+                                    future: fs.FirebaseFirestore.instance
+                                        .collection('users')
+                                        .doc(rental.renterId)
+                                        .get(),
+                                    builder: (context, userSnap) {
+                                      if (userSnap.connectionState == ConnectionState.waiting) {
+                                        return const CircleAvatar(child: Icon(Icons.person));
+                                      }
+                                      if (!userSnap.hasData || !userSnap.data!.exists) {
+                                        return const CircleAvatar(child: Icon(Icons.person_off));
+                                      }
+                                      final data = userSnap.data!.data();
+                                      final name = (data?['name'] ?? data?['email'] ?? '') as String;
+                                      final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+                                      return CircleAvatar(child: Text(initial));
+                                    }),
+
                             title: Text('Date: $formatted'),
-                            subtitle: Text('Hours: ${rental.hours}'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                rental.renterId == null
+                                    ? const Text('Booked by: Unknown')
+                                    : FutureBuilder<fs.DocumentSnapshot<Map<String, dynamic>>>(
+                                        future: fs.FirebaseFirestore.instance
+                                            .collection('users')
+                                            .doc(rental.renterId)
+                                            .get(),
+                                        builder: (context, userSnap) {
+                                          if (userSnap.connectionState == ConnectionState.waiting) {
+                                            return const Text('Booked by: Loading...');
+                                          }
+                                          if (!userSnap.hasData || !userSnap.data!.exists) {
+                                            return const Text('Booked by: Unknown');
+                                          }
+                                          final data = userSnap.data!.data();
+                                          final name = data?['name'] ?? '';
+                                          final email = data?['email'] ?? '';
+                                          final display = name != '' ? name : (email != '' ? email : 'Unknown');
+                                          return Text('Booked by: $display${email != '' && name != '' ? ' <$email>' : ''}');
+                                        }),
+
+                                Text('Hours: ${rental.hours}'),
+                              ],
+                            ),
                             trailing: PopupMenuButton<String>(
                               icon: Chip(
                                 label: Text(
