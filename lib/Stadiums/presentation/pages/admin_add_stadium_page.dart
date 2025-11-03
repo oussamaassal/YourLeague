@@ -352,6 +352,85 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
                                     ],
                                   ),
                                   const SizedBox(height: 8),
+                                  // Direct coordinate inputs + go-to-map button
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _latitudeController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Latitude',
+                                            hintText: 'e.g. 36.8065',
+                                          ),
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                          validator: (v) {
+                                            if (v == null || v.trim().isEmpty) return null; // optional
+                                            final val = double.tryParse(v);
+                                            if (val == null || val < -90 || val > 90) return 'Invalid latitude';
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: TextFormField(
+                                          controller: _longitudeController,
+                                          decoration: const InputDecoration(
+                                            labelText: 'Longitude',
+                                            hintText: 'e.g. 10.1815',
+                                          ),
+                                          keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                                          validator: (v) {
+                                            if (v == null || v.trim().isEmpty) return null; // optional
+                                            final val = double.tryParse(v);
+                                            if (val == null || val < -180 || val > 180) return 'Invalid longitude';
+                                            return null;
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton.icon(
+                                        onPressed: isLoading
+                                            ? null
+                                            : () {
+                                                // Validate coordinate inputs and open map centered there
+                                                final latText = _latitudeController.text.trim();
+                                                final lngText = _longitudeController.text.trim();
+                                                final lat = double.tryParse(latText);
+                                                final lng = double.tryParse(lngText);
+                                                if (lat == null || lng == null) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Please enter valid numeric coordinates')),
+                                                  );
+                                                  return;
+                                                }
+                                                if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    const SnackBar(content: Text('Coordinates out of range')),
+                                                  );
+                                                  return;
+                                                }
+
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (context) => MapLocationPicker(
+                                                    initialLatitude: lat,
+                                                    initialLongitude: lng,
+                                                    onLocationPicked: (location) {
+                                                      setState(() {
+                                                        _latitudeController.text = location.latitude.toString();
+                                                        _longitudeController.text = location.longitude.toString();
+                                                      });
+                                                    },
+                                                  ),
+                                                );
+                                              },
+                                        icon: const Icon(Icons.my_location),
+                                        label: const Text('Go'),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
                                   if (_latitudeController.text.isNotEmpty && _longitudeController.text.isNotEmpty)
                                     Text(
                                       'Selected Location: (${_latitudeController.text}, ${_longitudeController.text})',
