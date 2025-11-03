@@ -225,6 +225,7 @@ class _OfferedStadiumsTab extends StatelessWidget {
     final addressController = TextEditingController(text: stadium.address);
     final priceController = TextEditingController(text: stadium.pricePerHour.toString());
     final capacityController = TextEditingController(text: stadium.capacity.toString());
+    String selectedType = stadium.type;
     File? imageFile;
     bool saving = false;
 
@@ -300,6 +301,23 @@ class _OfferedStadiumsTab extends StatelessWidget {
                             decoration: const InputDecoration(labelText: 'Stadium Name'),
                             validator: (v) =>
                                 v == null || v.trim().isEmpty ? 'Enter name' : null,
+                          ),
+                          DropdownButtonFormField<String>(
+                            value: selectedType,
+                            decoration: const InputDecoration(labelText: 'Stadium Type'),
+                            items: ['football', 'volleyball', 'handball', 'basketball']
+                                .map((type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type.substring(0, 1).toUpperCase() + type.substring(1)),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  selectedType = value;
+                                });
+                              }
+                            },
                           ),
                           TextFormField(
                             controller: cityController,
@@ -379,6 +397,7 @@ class _OfferedStadiumsTab extends StatelessWidget {
                                         name: nameController.text.trim(),
                                         city: cityController.text.trim(),
                                         address: addressController.text.trim(),
+                                        type: selectedType,
                                         capacity: int.parse(capacityController.text.trim()),
                                         pricePerHour: double.parse(priceController.text.trim()),
                                         imageUrls: imageUrls,

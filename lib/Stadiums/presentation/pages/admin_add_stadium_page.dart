@@ -29,6 +29,8 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
   final _descriptionController = TextEditingController();
   final _latitudeController = TextEditingController();
   final _longitudeController = TextEditingController();
+  
+  String _selectedType = 'football'; // Default stadium type
 
   List<File> _imageFiles = []; // Multiple images support
 
@@ -92,6 +94,7 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
         name: _nameController.text.trim(),
         city: _cityController.text.trim(),
         address: _addressController.text.trim(),
+        type: _selectedType,
         capacity: int.tryParse(_capacityController.text.trim()) ?? 100,
         pricePerHour: double.parse(_priceController.text.trim()),
         imageUrls: imageUrls,
@@ -172,6 +175,24 @@ class _AdminAddStadiumPageState extends State<AdminAddStadiumPage> {
                             controller: _nameController,
                             decoration: const InputDecoration(labelText: 'Stadium Name'),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Enter name' : null,
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            value: _selectedType,
+                            decoration: const InputDecoration(labelText: 'Stadium Type'),
+                            items: ['football', 'volleyball', 'handball', 'basketball']
+                                .map((type) => DropdownMenuItem(
+                                      value: type,
+                                      child: Text(type.substring(0, 1).toUpperCase() + type.substring(1)),
+                                    ))
+                                .toList(),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _selectedType = value;
+                                });
+                              }
+                            },
                           ),
                           const SizedBox(height: 8),
                           TextFormField(

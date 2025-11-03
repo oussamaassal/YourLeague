@@ -230,42 +230,79 @@ class _RentStadiumPageState extends State<RentStadiumPage> {
             itemCount: filteredAndSorted.length,
             itemBuilder: (context, index) {
               final stadium = filteredAndSorted[index];
+              // determine ownership for current user
+              final authCubit = context.read<AuthCubit>();
+              final currentUser = authCubit.currentUser;
+              final bool isOwned = stadium.isOwner(currentUser?.uid);
+
               return Card(
                 margin: const EdgeInsets.symmetric(vertical: 8),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: InkWell(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => StadiumDetailsPage(stadium: stadium),
+                child: Stack(
+                  children: [
+                    Opacity(
+                      opacity: isOwned ? 0.65 : 1.0,
+                      child: InkWell(
+                        onTap: isOwned
+                            ? null
+                            : () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => StadiumDetailsPage(stadium: stadium),
+                                  ),
+                                ),
+                        child: ListTile(
+                          leading: stadium.imageUrl.isNotEmpty
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(
+                                    stadium.imageUrl,
+                                    width: 70,
+                                    height: 70,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) =>
+                                        const Icon(Icons.stadium_outlined, size: 40),
+                                  ),
+                                )
+                              : const Icon(Icons.stadium_outlined, size: 40),
+                          title: Text(stadium.name),
+                          subtitle: Text(
+                            '${stadium.city} • ${stadium.address}\nPrice: \$${stadium.pricePerHour.toStringAsFixed(2)} / hr • Capacity: ${stadium.capacity}',
+                          ),
+                          isThreeLine: true,
+                          trailing: isOwned
+                              ? Chip(
+                                  label: const Text('Owned'),
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.surfaceVariant,
+                                )
+                              : ElevatedButton(
+                                  onPressed: () => _showRentSheet(context, stadium),
+                                  child: const Text('Rent'),
+                                ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: ListTile(
-                    leading: stadium.imageUrl.isNotEmpty
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
-                            child: Image.network(
-                              stadium.imageUrl,
-                              width: 70,
-                              height: 70,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.stadium_outlined, size: 40),
-                            ),
-                          )
-                        : const Icon(Icons.stadium_outlined, size: 40),
-                    title: Text(stadium.name),
-                    subtitle: Text(
-                      '${stadium.city} • ${stadium.address}\nPrice: \$${stadium.pricePerHour.toStringAsFixed(2)} / hr • Capacity: ${stadium.capacity}',
-                    ),
-                    isThreeLine: true,
-                    trailing: ElevatedButton(
-                      onPressed: () => _showRentSheet(context, stadium),
-                      child: const Text('Rent'),
-                    ),
-                  ),
+                    // optional small owner banner (top-right)
+                    if (isOwned)
+                      Positioned(
+                        top: 8,
+                        right: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'Your stadium',
+                            style: TextStyle(color: Colors.white, fontSize: 12),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               );
             },

@@ -6,6 +6,7 @@ class Stadium {
   final String name;
   final String city;
   final String address;
+  final String type; // Type of stadium (football, volleyball, etc.)
   final int capacity;
   final double pricePerHour;
   final List<String> imageUrls; // Multiple images support
@@ -16,11 +17,15 @@ class Stadium {
   final String? description; // Additional details
   final fs.Timestamp createdAt;
 
+  // Valid stadium types
+  static const List<String> validTypes = ['football', 'volleyball', 'handball', 'basketball'];
+
   Stadium({
     required this.id,
     required this.name,
     required this.city,
     required this.address,
+    required this.type,
     required this.capacity,
     required this.pricePerHour,
     this.imageUrls = const [],
@@ -40,6 +45,9 @@ class Stadium {
     }
     if (address.trim().isEmpty) {
       throw StadiumValidationException('Address cannot be empty');
+    }
+    if (!validTypes.contains(type.toLowerCase())) {
+      throw StadiumValidationException('Invalid stadium type. Must be one of: ${validTypes.join(", ")}');
     }
     if (capacity <= 0) {
       throw StadiumValidationException('Capacity must be greater than 0');
@@ -75,6 +83,7 @@ class Stadium {
       name: json['name'] ?? '',
       city: json['city'] ?? '',
       address: json['address'] ?? '',
+      type: json['type'] ?? 'football', // Default to football if not specified
       capacity: json['capacity'] ?? 0,
       pricePerHour: (json['pricePerHour'] ?? json['price_per_hour'] ?? 0.0).toDouble(),
       imageUrls: imageUrls,
@@ -101,6 +110,7 @@ class Stadium {
       name: data['name'] ?? '',
       city: data['city'] ?? '',
       address: data['address'] ?? '',
+      type: data['type'] ?? 'football', // Default to football if not specified
       capacity: data['capacity'] ?? 0,
       pricePerHour: (data['pricePerHour'] ?? data['price_per_hour'] ?? 0.0).toDouble(),
       imageUrls: imageUrls,
@@ -119,6 +129,7 @@ class Stadium {
       'name': name,
       'city': city,
       'address': address,
+      'type': type,
       'capacity': capacity,
       'pricePerHour': pricePerHour,
       'imageUrls': imageUrls,
@@ -137,6 +148,7 @@ class Stadium {
       'name': name,
       'city': city,
       'address': address,
+      'type': type,
       'capacity': capacity,
       'pricePerHour': pricePerHour,
       'imageUrls': imageUrls,

@@ -11,12 +11,23 @@ class FirebaseRentalRepo implements RentalRepo {
   Future<void> createRental(StadiumRental rental) async {
     try {
       final currentUser = _firebaseAuth.currentUser;
-      final rentalData = rental.toFirestore();
-      
-      // Add renterId if available
-      if (currentUser != null && rentalData['renterId'] == null) {
-        rentalData['renterId'] = currentUser.uid;
+      if (currentUser == null) {
+        throw Exception('User must be logged in to create a rental');
       }
+
+      // Get the stadium details to check ownership
+      final stadiumDoc = await _firestore.collection('stadiums').doc(rental.stadiumId).get();
+      if (!stadiumDoc.exists) {
+        throw Exception('Stadium not found');
+      }
+
+      final stadiumData = stadiumDoc.data()!;
+      if (stadiumData['userId'] == currentUser.uid) {
+        throw Exception('Stadium owners cannot rent their own stadiums');
+      }
+
+      final rentalData = rental.toFirestore();
+      rentalData['renterId'] = currentUser.uid;
 
       await _firestore.collection('stadium_rentals').doc(rental.id).set(rentalData);
     } catch (e) {
