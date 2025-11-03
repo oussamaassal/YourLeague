@@ -5,6 +5,8 @@ import 'package:yourleague/User/features/matches/presentation/cubits/matches_sta
 import 'package:yourleague/User/features/matches/domain/entities/match.dart';
 import 'package:yourleague/User/features/matches/presentation/pages/match_events_page.dart';
 import 'package:intl/intl.dart';
+import 'package:yourleague/User/services/notification_service.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -88,6 +90,34 @@ class _MatchesPageState extends State<MatchesPage> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
+                          icon: const Icon(Icons.notifications_active),
+                          tooltip: 'Rappel 15 min avant',
+                          onPressed: () async {
+                            final int notifId = match.id.hashCode & 0x7fffffff;
+                            final success = await NotificationService.instance.scheduleMatchReminder(
+                              matchDateTime: match.matchDate.toDate(),
+                              notificationId: notifId,
+                              matchId: match.id,
+                              matchTitle: '${match.team1Name} vs ${match.team2Name}',
+                              title: 'Rappel de match',
+                              reminderMinutes: 15,
+                            );
+                            if (!context.mounted) return;
+                            if (success) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Rappel programmé 15 min avant le match')),
+                              );
+                            } else {
+                              final msg = kIsWeb
+                                  ? 'Les rappels locaux ne sont pas disponibles sur le web dans cette build.'
+                                  : 'Rappel non programmé (match trop proche ou passé).';
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(msg)),
+                              );
+                            }
+                          },
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.event_note),
                           tooltip: 'Match Events',
                           onPressed: () {
@@ -147,6 +177,7 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
+  TimeOfDay _selectedTime = TimeOfDay.now();
 
   @override
   void dispose() {
@@ -171,6 +202,18 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _selectTime(BuildContext context) async {
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime,
+    );
+    if (picked != null && picked != _selectedTime) {
+      setState(() {
+        _selectedTime = picked;
       });
     }
   }
@@ -205,6 +248,10 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
                 onPressed: () => _selectDate(context),
                 child: Text('Date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}'),
               ),
+              TextButton(
+                onPressed: () => _selectTime(context),
+                child: Text('Time: ${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}'),
+              ),
               TextFormField(
                 controller: _locationController,
                 decoration: const InputDecoration(labelText: 'Location (Optional)'),
@@ -221,6 +268,13 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
         ElevatedButton(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
+              final combinedDateTime = DateTime(
+                _selectedDate.year,
+                _selectedDate.month,
+                _selectedDate.day,
+                _selectedTime.hour,
+                _selectedTime.minute,
+              );
               context.read<MatchesCubit>().createMatch(
                 tournamentId: _tournamentIdController.text,
                 team1Id: 'team1_${DateTime.now().millisecondsSinceEpoch}',
@@ -228,7 +282,7 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
                 team2Id: 'team2_${DateTime.now().millisecondsSinceEpoch}',
                 team2Name: _team2NameController.text,
                 location: _locationController.text.isEmpty ? null : _locationController.text,
-                matchDate: _selectedDate,
+                matchDate: combinedDateTime,
               );
               Navigator.pop(context);
             }

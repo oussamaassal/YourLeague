@@ -20,6 +20,7 @@ import 'package:yourleague/User/features/matches/presentation/cubits/matches_cub
 import 'package:yourleague/User/features/settings/presentation/cubits/theme_cubit.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
+import 'package:yourleague/User/services/notification_service.dart';
 import 'firebase_options.dart';
 
 
@@ -35,6 +36,9 @@ void main() async {
     print("ℹ️  Firebase not connected yet - showing welcome page");
     firebaseInitialized = false;
   }
+
+  // Initialize local notifications (timezone, channels)
+  await NotificationService.instance.init();
 
   runApp(MyApp(firebaseEnabled: firebaseInitialized));
 }
@@ -91,7 +95,7 @@ class MyApp extends StatelessWidget {
         builder: (context, themeMode) {
           return MaterialApp(
             debugShowCheckedModeBanner: false,
-            title: 'Your League',
+          title: 'Your League',
             theme: lightMode,
             darkTheme: darkMode,
             themeMode: themeMode,
