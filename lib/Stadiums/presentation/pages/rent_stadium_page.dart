@@ -99,8 +99,101 @@ class _RentStadiumPageState extends State<RentStadiumPage> {
         children: [
           // Search and Sort Bar
           _buildSearchAndSortBar(),
+          // Active filters chips row
+          _buildActiveFiltersRow(),
           // Stadiums List
           Expanded(child: _buildStadiumsList()),
+        ],
+      ),
+    );
+  }
+
+  /// Shows active filters as chips with per-filter remove and a clear-all button
+  Widget _buildActiveFiltersRow() {
+    final chips = <Widget>[];
+
+    if (_searchQuery.isNotEmpty) {
+      chips.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Chip(
+          label: Text('Search: "${_searchQuery}"'),
+          onDeleted: () {
+            setState(() {
+              _searchController.clear();
+              _searchQuery = '';
+            });
+          },
+        ),
+      ));
+    }
+
+    if (_selectedCity != null) {
+      chips.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Chip(
+          label: Text('City: ${_selectedCity}'),
+          onDeleted: () => setState(() => _selectedCity = null),
+        ),
+      ));
+    }
+
+    if (_selectedType != null) {
+      final display = _selectedType![0].toUpperCase() + _selectedType!.substring(1);
+      chips.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Chip(
+          label: Text('Type: $display'),
+          onDeleted: () => setState(() => _selectedType = null),
+        ),
+      ));
+    }
+
+    if (_minPrice != null || _maxPrice != null) {
+      final min = _minPrice != null ? _minPrice!.toStringAsFixed(0) : '';
+      final max = _maxPrice != null ? _maxPrice!.toStringAsFixed(0) : '';
+      final label = (_minPrice != null && _maxPrice != null)
+          ? '\$${min} - \$${max}'
+          : (_minPrice != null ? '>= \$${min}' : '<= \$${max}');
+      chips.add(Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Chip(
+          label: Text('Price: $label'),
+          onDeleted: () => setState(() {
+            _minPrice = null;
+            _maxPrice = null;
+          }),
+        ),
+      ));
+    }
+
+    if (chips.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      color: Theme.of(context).colorScheme.surface,
+      child: Row(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(children: chips),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Clear all filters',
+            onPressed: () => setState(() {
+              _searchController.clear();
+              _searchQuery = '';
+              _selectedCity = null;
+              _selectedType = null;
+              _minPrice = null;
+              _maxPrice = null;
+            }),
+            icon: const Icon(Icons.clear_all),
+          ),
         ],
       ),
     );
