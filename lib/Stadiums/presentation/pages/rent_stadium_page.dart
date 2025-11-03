@@ -22,6 +22,7 @@ class _RentStadiumPageState extends State<RentStadiumPage> {
   String _searchQuery = '';
   String _sortOrder = 'none'; // 'none', 'priceLowToHigh', 'priceHighToLow', 'capacity'
   String? _selectedCity;
+  String? _selectedType;
   double? _minPrice;
   double? _maxPrice;
 
@@ -49,10 +50,12 @@ class _RentStadiumPageState extends State<RentStadiumPage> {
       
       final matchesCity = _selectedCity == null || stadium.city == _selectedCity;
       
-      final matchesPrice = (_minPrice == null || stadium.pricePerHour >= _minPrice!) &&
-          (_maxPrice == null || stadium.pricePerHour <= _maxPrice!);
+    final matchesPrice = (_minPrice == null || stadium.pricePerHour >= _minPrice!) &&
+      (_maxPrice == null || stadium.pricePerHour <= _maxPrice!);
 
-      return matchesSearch && matchesCity && matchesPrice;
+    final matchesType = _selectedType == null || stadium.type.toLowerCase() == _selectedType!.toLowerCase();
+
+    return matchesSearch && matchesCity && matchesPrice && matchesType;
     }).toList();
 
     // Sort stadiums
@@ -319,17 +322,21 @@ class _RentStadiumPageState extends State<RentStadiumPage> {
     final cities = stadiumState is StadiumsLoaded 
         ? _getCities(stadiumState.stadiums) 
         : <String>[];
+    final types = Stadium.validTypes;
     
     showDialog(
       context: context,
       builder: (context) => _FilterDialog(
         selectedCity: _selectedCity,
+        selectedType: _selectedType,
         minPrice: _minPrice,
         maxPrice: _maxPrice,
         cities: cities,
-        onApply: (city, minPrice, maxPrice) {
+        types: types,
+        onApply: (city, type, minPrice, maxPrice) {
           setState(() {
             _selectedCity = city;
+            _selectedType = type;
             _minPrice = minPrice;
             _maxPrice = maxPrice;
           });
@@ -551,16 +558,20 @@ class _RentSheetContentState extends State<_RentSheetContent> {
 // Filter Dialog Widget
 class _FilterDialog extends StatefulWidget {
   final String? selectedCity;
+  final String? selectedType;
   final double? minPrice;
   final double? maxPrice;
   final List<String> cities;
-  final Function(String?, double?, double?) onApply;
+  final List<String> types;
+  final Function(String?, String?, double?, double?) onApply;
 
   const _FilterDialog({
     required this.selectedCity,
+    required this.selectedType,
     required this.minPrice,
     required this.maxPrice,
     required this.cities,
+    required this.types,
     required this.onApply,
   });
 
@@ -570,6 +581,7 @@ class _FilterDialog extends StatefulWidget {
 
 class _FilterDialogState extends State<_FilterDialog> {
   late String? _selectedCity;
+  late String? _selectedType;
   late TextEditingController _minPriceController;
   late TextEditingController _maxPriceController;
 
@@ -577,6 +589,7 @@ class _FilterDialogState extends State<_FilterDialog> {
   void initState() {
     super.initState();
     _selectedCity = widget.selectedCity;
+    _selectedType = widget.selectedType;
     _minPriceController = TextEditingController(
       text: widget.minPrice?.toString() ?? '',
     );
@@ -625,6 +638,32 @@ class _FilterDialogState extends State<_FilterDialog> {
               ),
               const SizedBox(height: 16),
             ],
+
+            // Type filter
+            const Text('Type:', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            DropdownButton<String>(
+              value: _selectedType,
+              isExpanded: true,
+              hint: const Text('All Types'),
+              items: [
+                const DropdownMenuItem<String>(
+                  value: null,
+                  child: Text('All Types'),
+                ),
+                ...widget.types.map((t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(t[0].toUpperCase() + t.substring(1)),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedType = value;
+                });
+              },
+            ),
+            const SizedBox(height: 16),
+
             const Text('Price Range:', style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Row(
@@ -663,6 +702,7 @@ class _FilterDialogState extends State<_FilterDialog> {
           onPressed: () {
             setState(() {
               _selectedCity = null;
+              _selectedType = null;
               _minPriceController.clear();
               _maxPriceController.clear();
             });
@@ -681,7 +721,7 @@ class _FilterDialogState extends State<_FilterDialog> {
             final maxPrice = _maxPriceController.text.isEmpty
                 ? null
                 : double.tryParse(_maxPriceController.text);
-            widget.onApply(_selectedCity, minPrice, maxPrice);
+            widget.onApply(_selectedCity, _selectedType, minPrice, maxPrice);
           },
           child: const Text('Apply'),
         ),
