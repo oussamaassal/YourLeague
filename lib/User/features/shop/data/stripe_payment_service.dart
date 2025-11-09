@@ -15,6 +15,8 @@ class StripePaymentService {
     Stripe.publishableKey = StripeConfig.publishableKey; // centralized
     // Apple Pay merchantIdentifier used only on iOS; safe to set anyway
     Stripe.merchantIdentifier = StripeConfig.merchantIdentifier;
+    // Set return URL for deep linking back to app
+    Stripe.urlScheme = 'yourleague';
     await Stripe.instance.applySettings();
   }
 
@@ -87,6 +89,8 @@ class StripePaymentService {
           paymentIntentClientSecret: paymentIntent['clientSecret'] as String,
           merchantDisplayName: 'YourLeague Shop',
           style: ThemeMode.system,
+          returnURL: 'yourleague://stripe-redirect',
+          allowsDelayedPaymentMethods: true,
         ),
       );
 
@@ -99,6 +103,17 @@ class StripePaymentService {
       );
       return true;
     } on StripeException catch (e) {
+      print('🔴 Stripe Exception: ${e.error.code} - ${e.error.message}');
+      
+      // User cancelled the payment
+      if (e.error.code == FailureCode.Canceled) {
+        if (!context.mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment cancelled')),
+        );
+        return false;
+      }
+      
       if (!context.mounted) return false;
       final msg = e.error.message ?? e.error.localizedMessage ?? 'Payment failed';
       ScaffoldMessenger.of(context).showSnackBar(
@@ -106,6 +121,7 @@ class StripePaymentService {
       );
       return false;
     } catch (e) {
+      print('🔴 Payment error: $e');
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ Payment error: $e')),

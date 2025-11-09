@@ -23,7 +23,7 @@ android {
 
     defaultConfig {
         applicationId "com.freeplay.yourleague.yourleague"
-        minSdk flutter.minSdkVersion
+        minSdk 21  // Stripe requires minimum API 21
         targetSdk flutter.targetSdkVersion
         versionCode flutter.versionCode
         versionName flutter.versionName
