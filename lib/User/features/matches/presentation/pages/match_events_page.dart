@@ -4,10 +4,15 @@ import 'package:yourleague/User/features/matches/presentation/cubits/matches_cub
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_states.dart';
 import 'package:yourleague/User/features/matches/domain/entities/match_event.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:yourleague/User/features/polls/poll_service.dart';
 import 'package:yourleague/User/features/polls/poll_widget.dart';
 import 'package:yourleague/User/features/polls/create_poll_dialog.dart';
 import 'package:yourleague/User/features/polls/admin_service.dart';
+import 'package:yourleague/User/features/matches/services/match_video_service.dart';
+import 'package:yourleague/User/features/matches/presentation/widgets/match_video_card.dart';
+import 'package:yourleague/User/features/matches/presentation/dialogs/add_match_video_link_dialog.dart';
+import 'package:yourleague/User/features/matches/presentation/dialogs/add_match_video_upload_dialog.dart';
 
 class MatchEventsPage extends StatefulWidget {
   final String matchId;
@@ -41,6 +46,35 @@ class _MatchEventsPageState extends State<MatchEventsPage> {
               );
             },
           ),
+          // Vidéos: visible pour tout utilisateur authentifié
+          Builder(
+            builder: (context) {
+              final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+              if (!isLoggedIn) return const SizedBox.shrink();
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.video_library),
+                tooltip: 'Ajouter une vidéo',
+                onSelected: (value) async {
+                  if (value == 'youtube') {
+                    await showDialog(
+                      context: context,
+                      builder: (_) => AddMatchVideoLinkDialog(matchId: widget.matchId),
+                    );
+                  } else if (value == 'upload') {
+                    await showDialog(
+                      context: context,
+                      builder: (_) => AddMatchVideoUploadDialog(matchId: widget.matchId),
+                    );
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'youtube', child: Text('Ajouter lien YouTube')),
+                  PopupMenuItem(value: 'upload', child: Text('Uploader un fichier')),
+                ],
+              );
+            },
+          ),
+          // Sondages: réservé aux admins
           FutureBuilder<bool>(
             future: AdminService.currentUserIsAdmin(),
             builder: (context, snap) {
@@ -81,9 +115,28 @@ class _MatchEventsPageState extends State<MatchEventsPage> {
           }
 
           if (state is MatchEventsLoaded) {
-            // Show polls at the top, then events list or a compact placeholder
+            // Show videos, then polls at the top, then events list or a compact placeholder
             return Column(
               children: [
+                SizedBox(
+                  height: 160,
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: MatchVideoService.streamVideosForMatch(widget.matchId),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final docs = snapshot.data!.docs;
+                      if (docs.isEmpty) return const SizedBox.shrink();
+                      return ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: docs.length,
+                        itemBuilder: (context, i) {
+                          final data = docs[i].data();
+                          return MatchVideoCard(data: data);
+                        },
+                      );
+                    },
+                  ),
+                ),
                 SizedBox(
                   height: 220,
                   child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
