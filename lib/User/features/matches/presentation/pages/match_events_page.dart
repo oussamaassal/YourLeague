@@ -3,6 +3,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_cubit.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_states.dart';
 import 'package:yourleague/User/features/matches/domain/entities/match_event.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:yourleague/User/features/polls/poll_service.dart';
+import 'package:yourleague/User/features/polls/poll_widget.dart';
+import 'package:yourleague/User/features/polls/create_poll_dialog.dart';
+import 'package:yourleague/User/features/polls/admin_service.dart';
+import 'package:yourleague/User/features/matches/services/match_video_service.dart';
+import 'package:yourleague/User/features/matches/presentation/widgets/match_video_card.dart';
+import 'package:yourleague/User/features/matches/presentation/dialogs/add_match_video_link_dialog.dart';
+import 'package:yourleague/User/features/matches/presentation/dialogs/add_match_video_upload_dialog.dart';
 
 class MatchEventsPage extends StatefulWidget {
   final String matchId;
@@ -25,7 +35,7 @@ class _MatchEventsPageState extends State<MatchEventsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Match Events - ${widget.matchId.substring(0, 8)}...'),
+        title: const Text('Matches Event'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -33,6 +43,53 @@ class _MatchEventsPageState extends State<MatchEventsPage> {
               showDialog(
                 context: context,
                 builder: (context) => AddMatchEventDialog(matchId: widget.matchId),
+              );
+            },
+          ),
+          // Vidéos: visible pour tout utilisateur authentifié
+          Builder(
+            builder: (context) {
+              final isLoggedIn = FirebaseAuth.instance.currentUser != null;
+              if (!isLoggedIn) return const SizedBox.shrink();
+              return PopupMenuButton<String>(
+                icon: const Icon(Icons.video_library),
+                tooltip: 'Ajouter une vidéo',
+                onSelected: (value) async {
+                  if (value == 'youtube') {
+                    await showDialog(
+                      context: context,
+                      builder: (_) => AddMatchVideoLinkDialog(matchId: widget.matchId),
+                    );
+                  } else if (value == 'upload') {
+                    await showDialog(
+                      context: context,
+                      builder: (_) => AddMatchVideoUploadDialog(matchId: widget.matchId),
+                    );
+                  }
+                },
+                itemBuilder: (context) => const [
+                  PopupMenuItem(value: 'youtube', child: Text('Ajouter lien YouTube')),
+                  PopupMenuItem(value: 'upload', child: Text('Uploader un fichier')),
+                ],
+              );
+            },
+          ),
+          // Sondages: réservé aux admins
+          FutureBuilder<bool>(
+            future: AdminService.currentUserIsAdmin(),
+            builder: (context, snap) {
+              if (!snap.hasData) return const SizedBox.shrink();
+              final isAdmin = snap.data ?? false;
+              if (!isAdmin) return const SizedBox.shrink();
+              return IconButton(
+                icon: const Icon(Icons.how_to_vote),
+                tooltip: 'Create Poll',
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => CreatePollDialog(matchId: widget.matchId),
+                  );
+                },
               );
             },
           ),
@@ -58,108 +115,148 @@ class _MatchEventsPageState extends State<MatchEventsPage> {
           }
 
           if (state is MatchEventsLoaded) {
-            if (state.events.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.event_available, size: 80, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No events found for this match',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Add events to track goals, cards, and more',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
+            // Show videos, then polls at the top, then events list or a compact placeholder
+            return Column(
+              children: [
+                SizedBox(
+                  height: 160,
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: MatchVideoService.streamVideosForMatch(widget.matchId),
+                    builder: (context, snapshot) {
+                      if (!snapshot.hasData) return const SizedBox.shrink();
+                      final docs = snapshot.data!.docs;
+                      if (docs.isEmpty) return const SizedBox.shrink();
+                      return ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: docs.length,
+                        itemBuilder: (context, i) {
+                          final data = docs[i].data();
+                          return MatchVideoCard(data: data);
+                        },
+                      );
+                    },
+                  ),
                 ),
-              );
-            }
-
-            return ListView.builder(
-              itemCount: state.events.length,
-              itemBuilder: (context, index) {
-                final event = state.events[index];
-                return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        left: BorderSide(
-                          color: _getEventColor(event.type),
-                          width: 5,
-                        ),
-                      ),
+                SizedBox(
+                  height: 220,
+                  child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                      stream: PollService.streamPollsForMatch(widget.matchId),
+                      builder: (context, AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>> snapshot) {
+                        if (!snapshot.hasData) return const SizedBox.shrink();
+                        final docs = snapshot.data!.docs;
+                        if (docs.isEmpty) return const SizedBox.shrink();
+                        return ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: docs.length,
+                          itemBuilder: (context, i) {
+                            final d = docs[i];
+                            return SizedBox(
+                              width: MediaQuery.of(context).size.width * 0.9,
+                              child: PollWidget(matchId: widget.matchId, pollId: d.id),
+                            );
+                          },
+                        );
+                      },
                     ),
-                    child: ListTile(
-                      leading: _getEventIcon(event.type),
-                      title: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              event.type.replaceAll('_', ' ').toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: _getEventColor(event.type),
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                ),
+                const Divider(),
+                if (state.events.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 24),
+                    child: Column(
+                      children: const [
+                        Icon(Icons.event_available, size: 60, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('Aucun événement pour ce match'),
+                      ],
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      itemCount: state.events.length,
+                      itemBuilder: (context, index) {
+                        final event = state.events[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          child: Container(
                             decoration: BoxDecoration(
-                              color: Colors.grey[300],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${event.minute}\'',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                              border: Border(
+                                left: BorderSide(
+                                  color: _getEventColor(event.type),
+                                  width: 5,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (event.playerName != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Row(
+                            child: ListTile(
+                              leading: _getEventIcon(event.type),
+                              title: Row(
                                 children: [
-                                  const Icon(Icons.person, size: 16, color: Colors.grey),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    event.playerName!,
-                                    style: const TextStyle(fontWeight: FontWeight.w500),
+                                  Expanded(
+                                    child: Text(
+                                      event.type.replaceAll('_', ' ').toUpperCase(),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: _getEventColor(event.type),
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[300],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '${event.minute}\'',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ),
                                 ],
                               ),
-                            ),
-                          if (event.description != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                event.description!,
-                                style: TextStyle(color: Colors.grey[600]),
+                              subtitle: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (event.playerName != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            event.playerName!,
+                                            style: const TextStyle(fontWeight: FontWeight.w500),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  if (event.description != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 4),
+                                      child: Text(
+                                        event.description!,
+                                        style: TextStyle(color: Colors.grey[600]),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  context.read<MatchesCubit>().deleteMatchEvent(event.id, widget.matchId);
+                                },
                               ),
                             ),
-                        ],
-                      ),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          context.read<MatchesCubit>().deleteMatchEvent(event.id, widget.matchId);
-                        },
-                      ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                );
-              },
+              ],
             );
           }
 

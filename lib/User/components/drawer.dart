@@ -12,6 +12,7 @@ import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/teams_page.d
 import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/player_profile_page.dart';
 import 'package:yourleague/TeamsAndPlayers/players/presentation/pages/my_invites_page.dart';
 import '../features/notifications/presentation/pages/notifications_page.dart';
+import 'package:yourleague/User/features/polls/polls_page.dart';
 
 // NEW: QR scan page
 import 'package:yourleague/TeamsAndPlayers/teams/presentation/pages/qr_scan_join_page.dart';
@@ -227,6 +228,19 @@ class MyDrawer extends StatelessWidget {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (_) => const QrScanJoinPage()),
+                );
+              },
+            ),
+
+            // Polls page
+            MyDrawerTile(
+              text: "Sondages",
+              icon: Icons.poll,
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PollsPage()),
                 );
               },
             ),
