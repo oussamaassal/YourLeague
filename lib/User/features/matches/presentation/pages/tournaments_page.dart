@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:yourleague/User/features/matches/presentation/pages/leaderboards_page.dart';
 import 'package:yourleague/User/features/matches/presentation/pages/bracket_page.dart';
@@ -7,6 +9,7 @@ import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dar
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:yourleague/common/widgets/map_picker_page.dart';
+import 'package:yourleague/User/features/shop/data/cloudinary_service.dart';
 
 class TournamentsPage extends StatefulWidget {
   const TournamentsPage({super.key});
@@ -22,7 +25,12 @@ class _TournamentsPageState extends State<TournamentsPage> {
     DateTime? startDate;
     DateTime? endDate;
     ll.LatLng? pickedLatLng;
-    String selectedType = 'football'; // NEW: default type
+    String selectedType = 'football';
+    File? logoFile; // NEW: picked file
+    String? logoUrl; // NEW: uploaded Cloudinary URL
+    bool uploadingLogo = false; // NEW: progress flag
+    final cloudinary = CloudinaryService();
+    final imagePicker = ImagePicker();
 
     await showDialog(
       context: context,
@@ -46,6 +54,79 @@ class _TournamentsPageState extends State<TournamentsPage> {
                   TextField(
                     controller: descCtrl,
                     decoration: const InputDecoration(labelText: 'Description (optional)'),
+                  ),
+                  const SizedBox(height: 12),
+                  // NEW: Logo selector using Cloudinary
+                  Text('Logo', style: Theme.of(context).textTheme.labelLarge),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: uploadingLogo ? null : () async {
+                          try {
+                            final XFile? picked = await imagePicker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 1024,
+                              maxHeight: 1024,
+                              imageQuality: 85,
+                            );
+                            if (picked != null) {
+                              setStateDialog(() {
+                                logoFile = File(picked.path);
+                                uploadingLogo = true;
+                              });
+                              final url = await cloudinary.uploadImage(logoFile!);
+                              setStateDialog(() {
+                                logoUrl = url;
+                                uploadingLogo = false;
+                              });
+                              if (url == null && context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Logo upload failed')),
+                                );
+                              }
+                            }
+                          } catch (e) {
+                            setStateDialog(() { uploadingLogo = false; });
+                          }
+                        },
+                        icon: const Icon(Icons.image),
+                        label: Text(logoUrl == null ? 'Pick logo' : 'Change logo'),
+                      ),
+                      if (uploadingLogo)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 12),
+                          child: SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      if (logoUrl != null && !uploadingLogo)
+                        IconButton(
+                          tooltip: 'Clear logo',
+                          onPressed: () => setStateDialog(() {
+                            logoFile = null;
+                            logoUrl = null;
+                          }),
+                          icon: const Icon(Icons.close),
+                        ),
+                      const SizedBox(width: 8),
+                      if (logoUrl != null && !uploadingLogo)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: Image.network(
+                            logoUrl!,
+                            width: 44,
+                            height: 44,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => CircleAvatar(
+                              radius: 22,
+                              child: Text(nameCtrl.text.isNotEmpty ? nameCtrl.text[0].toUpperCase() : '?'),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 12),
                   // NEW: Type selector
@@ -192,17 +273,16 @@ class _TournamentsPageState extends State<TournamentsPage> {
                 label: const Text('Create'),
                 onPressed: () async {
                   final name = nameCtrl.text.trim();
-                  if (name.isEmpty) return; // keep disabled state simple
+                  if (name.isEmpty || uploadingLogo) return;
                   if (dateError != null) return;
                   final currentUid = context.read<AuthCubit>().currentUser?.uid;
                   if (currentUid == null) return;
-
                   final doc = fs.FirebaseFirestore.instance.collection('tournaments').doc();
                   final Map<String, dynamic> data = {
                     'name': name,
                     'description': descCtrl.text.trim(),
                     'status': 'inProgress',
-                    'type': selectedType, // NEW
+                    'type': selectedType,
                     'organizer': fs.FirebaseFirestore.instance.collection('users').doc(currentUid),
                     'matches': <fs.DocumentReference>[],
                     'createdAt': fs.Timestamp.now(),
@@ -210,7 +290,7 @@ class _TournamentsPageState extends State<TournamentsPage> {
                   if (startDate != null) data['startDate'] = fs.Timestamp.fromDate(startDate!);
                   if (endDate != null) data['endDate'] = fs.Timestamp.fromDate(endDate!);
                   if (pickedLatLng != null) data['location'] = fs.GeoPoint(pickedLatLng!.latitude, pickedLatLng!.longitude);
-
+                  if (logoUrl != null && logoUrl!.isNotEmpty) data['logoUrl'] = logoUrl;
                   await doc.set(data);
                   if (!mounted) return;
                   Navigator.pop(context);
@@ -394,15 +474,16 @@ class _TournamentsPageState extends State<TournamentsPage> {
 
               return Card(
                 child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    child: Text(title.isNotEmpty ? title[0].toUpperCase() : '#', style: const TextStyle(color: Colors.white)),
+                  leading: _TournamentAvatar(
+                    title: title,
+                    logoUrl: (data['logoUrl'] as String?),
+                    color: Theme.of(context).colorScheme.primary,
                   ),
                   title: Text(title),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (typeText.isNotEmpty) Text('Type: $typeText'), // NEW line
+                      if (typeText.isNotEmpty) Text('Type: $typeText'),
                       Text('Status: $status'),
                       if (dateText.isNotEmpty) Text('Dates: $dateText'),
                       if (locText.isNotEmpty) Text('Location: $locText'),
@@ -449,6 +530,48 @@ class _TournamentsPageState extends State<TournamentsPage> {
           );
         },
       ),
+    );
+  }
+}
+
+// Helper: avatar that shows logo or initial
+class _TournamentAvatar extends StatelessWidget {
+  final String title;
+  final String? logoUrl;
+  final Color color;
+  const _TournamentAvatar({required this.title, required this.logoUrl, required this.color});
+  @override
+  Widget build(BuildContext context) {
+    final double size = 44;
+    final borderColor = Theme.of(context).dividerColor.withOpacity(0.4);
+    if (logoUrl != null && logoUrl!.isNotEmpty) {
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Theme.of(context).colorScheme.surfaceVariant, // visible background
+          border: Border.all(color: borderColor, width: 0.75),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Image.network(
+          logoUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) {
+            // Fallback to initial if loading fails
+            return Center(
+              child: Text(
+                title.isNotEmpty ? title[0].toUpperCase() : '#',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            );
+          },
+        ),
+      );
+    }
+    return CircleAvatar(
+      backgroundColor: color,
+      child: Text(title.isNotEmpty ? title[0].toUpperCase() : '#', style: const TextStyle(color: Colors.white)),
     );
   }
 }
