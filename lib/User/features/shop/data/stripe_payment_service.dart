@@ -84,7 +84,21 @@ class StripePaymentService {
       print('🟢 Backend is reachable');
 
       // 2. Create payment intent via backend
-      final paymentIntent = await createPaymentIntent(amount, currency);
+      Map<String, dynamic> paymentIntent;
+      try {
+        paymentIntent = await createPaymentIntent(amount, currency);
+      } catch (e) {
+        // Surface clearer message & prevent presentPaymentSheet crash
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Could not create payment intent: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return false;
+      }
       print('🟢 Payment intent created: ${paymentIntent['clientSecret']?.substring(0, 20)}...');
 
       // 3. Init payment sheet with proper configuration
@@ -149,10 +163,14 @@ class StripePaymentService {
       return false;
     } catch (e) {
       print('🔴 Payment error: $e');
+      // Common crash scenario: Sheet not initialized / network lost mid-process
+      final hint = e.toString().contains('initPaymentSheet')
+          ? 'Hint: Ensure server reachable & publishable key set before calling processPayment.'
+          : '';
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('❌ Payment error: $e'),
+          content: Text('❌ Payment error: $e $hint'),
           backgroundColor: Colors.red,
         ),
       );

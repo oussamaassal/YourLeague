@@ -13,18 +13,28 @@ class MatchNotificationService {
     String? message,
   }) async {
     final uri = Uri.parse('$_base/matches/$matchId/notify');
-    final resp = await http.post(
-      uri,
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'recipients': recipients,
-        'subject': subject,
-        'message': message,
-      }),
-    );
+    print('📧 [MatchNotificationService] POST $uri recipients=${recipients.length}');
+    http.Response resp;
+    try {
+      resp = await http.post(
+        uri,
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'recipients': recipients,
+          'subject': subject,
+          'message': message,
+        }),
+      );
+    } on SocketException catch (e) {
+      throw Exception('Network error notifying match at $_base: $e');
+    }
+    print('📧 [MatchNotificationService] Response ${resp.statusCode}: ${resp.body.substring(0, resp.body.length.clamp(0, 400))}');
     if (resp.statusCode >= 200 && resp.statusCode < 300) {
       return true;
     }
-    throw Exception('Notify failed: ${resp.statusCode} ${resp.body}');
+    if (resp.statusCode == 404) {
+      throw Exception('Notify failed: 404 Not Found. Check server route /matches/:matchId/notify. BaseUrl=$_base');
+    }
+    throw Exception('Notify failed: ${resp.statusCode} ${resp.reasonPhrase} Body=${resp.body}');
   }
 }
