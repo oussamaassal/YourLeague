@@ -4,7 +4,7 @@ class ApiConfig {
   static const bool useNgrok = false; // Set to true when testing remotely
   
   // Your computer's local IP address (find it using 'ipconfig' on Windows)
-  static const String localIP = '10.219.75.111'; // Your WiFi IP address
+  static const String localIP = '192.168.1.19'; // Your WiFi IP address (updated)
   
   // Your ngrok URL (get this from ngrok terminal after running 'ngrok http 3000')
   static const String ngrokUrl = 'https://YOUR-NGROK-URL.ngrok.io'; // ⚠️ UPDATE THIS
