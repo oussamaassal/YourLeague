@@ -6,6 +6,7 @@ import 'package:yourleague/User/features/matches/domain/entities/leaderboard.dar
 import 'package:yourleague/User/features/matches/presentation/pages/bracket_page.dart';
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dart';
+import 'package:yourleague/common/services/weather_service.dart';
 
 class LeaderboardsPage extends StatefulWidget {
   final String tournamentId;
@@ -20,6 +21,8 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
 
   List<Leaderboard> _lastLeaderboards = const [];
   bool _isOrganizer = false;
+  WeatherInfo? _weather;
+  String? _weatherError;
 
   @override
   void initState() {
@@ -27,6 +30,7 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await context.read<MatchesCubit>().getLeaderboardsByTournament(widget.tournamentId);
       await _loadOrganizer();
+      await _loadWeather();
     });
   }
 
@@ -50,9 +54,30 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
     } catch (_) {}
   }
 
+  Future<void> _loadWeather() async {
+    try {
+      final doc = await fs.FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).get();
+      if (!doc.exists) return;
+      final data = doc.data() as Map<String, dynamic>;
+      final geo = data['location'];
+      if (geo is fs.GeoPoint && WeatherService.isEnabled) {
+        final info = await WeatherService.getCurrent(lat: geo.latitude, lon: geo.longitude);
+        if (!mounted) return;
+        setState(() { _weather = info; _weatherError = WeatherService.lastError; });
+      } else if (!(WeatherService.isEnabled)) {
+        setState(() { _weatherError = 'Weather disabled (no API key)'; });
+      } else {
+        setState(() { _weatherError = 'No location set for tournament'; });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { _weatherError = 'Weather error: $e'; });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final canAdd = _isOrganizer; // only organizer can add/modify teams
+    final canAdd = _isOrganizer;
 
     return Scaffold(
       appBar: AppBar(
@@ -104,29 +129,79 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
         builder: (context, state) {
           final leaderboards = (state is LeaderboardsLoaded) ? state.leaderboards : _lastLeaderboards;
 
+          // Weather header (if any)
+          final weatherHeader = (_weather != null)
+              ? Container(
+                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Image.network(_weather!.iconUrl, width: 48, height: 48, errorBuilder: (_, __, ___) => const Icon(Icons.wb_sunny)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('${_weather!.tempC.toStringAsFixed(1)}°C • ${_weather!.description}'),
+                            const SizedBox(height: 4),
+                            Text('Wind ${_weather!.windSpeed.toStringAsFixed(1)} m/s • Humidity ${_weather!.humidity}%'),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Refresh weather',
+                        onPressed: _loadWeather,
+                        icon: const Icon(Icons.refresh),
+                      ),
+                    ],
+                  ),
+                )
+              : (_weatherError != null)
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cloud_off, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_weatherError!, style: TextStyle(color: Theme.of(context).hintColor))),
+                          IconButton(onPressed: _loadWeather, icon: const Icon(Icons.refresh))
+                        ],
+                      ),
+                    )
+                  : const SizedBox.shrink();
+
           if (leaderboards.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.leaderboard, size: 80, color: Colors.grey[400]),
-                  const SizedBox(height: 16),
-                  Text(
-                    'No leaderboard entries',
-                    style: Theme.of(context).textTheme.titleLarge,
+            return Column(
+              children: [
+                weatherHeader,
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.leaderboard, size: 80, color: Colors.grey[400]),
+                        const SizedBox(height: 16),
+                        Text('No leaderboard entries', style: Theme.of(context).textTheme.titleLarge),
+                        const SizedBox(height: 8),
+                        Text(
+                          canAdd ? 'Add teams to see tournament standings' : 'Waiting for organizer to add teams',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    canAdd ? 'Add teams to see tournament standings' : 'Waiting for organizer to add teams',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
+                ),
+              ],
             );
           }
 
           return Column(
             children: [
+              weatherHeader,
               Container(
                 padding: const EdgeInsets.all(16),
                 color: Theme.of(context).colorScheme.primaryContainer,
@@ -137,19 +212,17 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            'Tournament Standings',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          Text(
-                            '${leaderboards.length} / 8 teams',
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
+                          Text('Tournament Standings', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                          Text('${leaderboards.length} / 8 teams', style: Theme.of(context).textTheme.bodySmall),
                         ],
                       ),
                     ),
+                    if (canAdd)
+                      IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: () => _showModifierDialog(context, leaderboards),
+                        tooltip: 'Modify Leaderboard',
+                      ),
                     IconButton(
                       icon: const Icon(Icons.refresh),
                       onPressed: () {
@@ -378,6 +451,51 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
       ),
     );
   }
+
+  void _showModifierDialog(BuildContext context, List<Leaderboard> leaderboards) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Modify Leaderboard'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const Text('Select a team to modify:'),
+              const SizedBox(height: 16),
+              ...leaderboards.map((leaderboard) => ListTile(
+                    title: Text(leaderboard.teamName),
+                    subtitle: Text('Pts: ${leaderboard.points} | MP: ${leaderboard.matchesPlayed}'),
+                    trailing: const Icon(Icons.edit),
+                    onTap: () {
+                      Navigator.pop(context);
+                      _showEditTeamDialog(context, leaderboard);
+                    },
+                  )),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  showDialog(
+                    context: context,
+                    builder: (context) => AddLeaderboardDialog(tournamentId: widget.tournamentId),
+                  );
+                },
+                child: const Text('Add New Team'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class AddLeaderboardDialog extends StatefulWidget {
@@ -439,4 +557,3 @@ class _AddLeaderboardDialogState extends State<AddLeaderboardDialog> {
     );
   }
 }
-
