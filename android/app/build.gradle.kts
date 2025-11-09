@@ -49,4 +49,7 @@ flutter {
 dependencies {
     // Core library desugaring to support Java 8+ APIs on older Android versions
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    
+    // Material Components for Stripe
+    implementation("com.google.android.material:material:1.9.0")
 }
