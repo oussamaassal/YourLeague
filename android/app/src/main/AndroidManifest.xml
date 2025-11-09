@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-<!-- ⬇️ Add these two lines -->
+    <!-- INTERNET permission for map tiles -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- ⬇️ Existing camera lines -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
