@@ -16,6 +16,14 @@ app.use(cors());
 app.use(bodyParser.json());
 
 // --------------------------
+// Basic request logger (helps debug 404 on teammate machines)
+// --------------------------
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// --------------------------
 // Static video directory
 // --------------------------
 const uploadsDir = path.join(__dirname, 'uploads', 'videos');
@@ -140,7 +148,38 @@ app.post('/send-cart-confirmation', async (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Stripe server is running' });
+  res.json({
+    status: 'ok',
+    message: 'Stripe server is running',
+    cwd: process.cwd(),
+    port: PORT,
+    time: new Date().toISOString()
+  });
+});
+
+// --------------------------
+// Debug: list registered routes
+// --------------------------
+app.get('/debug/routes', (req, res) => {
+  try {
+    const routes = [];
+    app._router.stack.forEach((m) => {
+      if (m.route) {
+        const methods = Object.keys(m.route.methods).join(',').toUpperCase();
+        routes.push({ path: m.route.path, methods });
+      } else if (m.name === 'router' && m.handle?.stack) {
+        m.handle.stack.forEach((s) => {
+          if (s.route) {
+            const methods = Object.keys(s.route.methods).join(',').toUpperCase();
+            routes.push({ path: s.route.path, methods });
+          }
+        });
+      }
+    });
+    res.json({ count: routes.length, routes });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // =============================
@@ -198,6 +237,12 @@ app.post('/matches/:matchId/notify', async (req, res) => {
     console.error('Notify error:', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+// Lightweight ping for notify route (GET) to quickly test 200/404 from browsers
+app.get('/matches/:matchId/notify/ping', (req, res) => {
+  const { matchId } = req.params;
+  res.json({ ok: true, matchId, route: '/matches/:matchId/notify' });
 });
 
 // =============================
