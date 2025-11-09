@@ -36,6 +36,17 @@ class _PollWidgetState extends State<PollWidget> {
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             [];
+        // Determine closed state (explicit flag or time-based)
+        final bool isClosedFlag = (data['isClosed'] ?? false) == true;
+        DateTime? closesAt;
+        try {
+          final ts = data['closesAt'];
+          if (ts is Timestamp) {
+            closesAt = ts.toDate();
+          }
+        } catch (_) {}
+        final bool isClosedTime = closesAt != null && closesAt!.isBefore(DateTime.now());
+        final bool isClosed = isClosedFlag || isClosedTime;
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -49,7 +60,26 @@ class _PollWidgetState extends State<PollWidget> {
                     Expanded(
                       child: Text(title, style: Theme.of(context).textTheme.titleMedium),
                     ),
-                    if (data['createdBy'] == FirebaseAuth.instance.currentUser?.uid)
+                    if (data['createdBy'] == FirebaseAuth.instance.currentUser?.uid) ...[
+                      IconButton(
+                        tooltip: isClosed ? 'Réouvrir' : 'Terminer',
+                        icon: Icon(isClosed ? Icons.lock_open : Icons.lock, color: Colors.orange),
+                        onPressed: () async {
+                          try {
+                            await PollService.setPollClosed(
+                              matchId: widget.matchId,
+                              pollId: widget.pollId,
+                              closed: !isClosed,
+                            );
+                          } catch (e) {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Erreur: ${e.toString()}')),
+                              );
+                            }
+                          }
+                        },
+                      ),
                       IconButton(
                         icon: const Icon(Icons.delete, color: Colors.red),
                         onPressed: () async {
@@ -86,6 +116,7 @@ class _PollWidgetState extends State<PollWidget> {
                           }
                         },
                       ),
+                    ]
                   ],
                 ),
                 const SizedBox(height: 8),
@@ -111,17 +142,14 @@ class _PollWidgetState extends State<PollWidget> {
 
                     final total = counts.values.fold<int>(0, (s, e) => s + e);
 
-                    // find current user vote (safe loop, avoid returning null from orElse)
+                    // find current user's vote using vote doc id == uid (more robust)
                     QueryDocumentSnapshot<Map<String, dynamic>>? userVoteDoc;
-                    for (final d in votes) {
-                      try {
-                        final data = d.data();
-                        if (data['userId'] == uid) {
+                    if (uid != null) {
+                      for (final d in votes) {
+                        if (d.id == uid) {
                           userVoteDoc = d;
                           break;
                         }
-                      } catch (_) {
-                        // ignore malformed vote docs
                       }
                     }
                     final alreadyVoted = userVoteDoc != null;
@@ -132,6 +160,28 @@ class _PollWidgetState extends State<PollWidget> {
                     // build options list
                     return Column(
                       children: [
+                        if (isClosed)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.lock_clock, color: Colors.orange),
+                                SizedBox(width: 8),
+                                Text('Sondage fermé')
+                              ],
+                            ),
+                          ),
+                        if (uid == null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              children: const [
+                                Icon(Icons.login, color: Colors.blueGrey),
+                                SizedBox(width: 8),
+                                Text('Connectez-vous pour voter')
+                              ],
+                            ),
+                          ),
                         ...options.map((opt) {
                           final id = opt['id'] as String;
                           final label = opt['label'] as String;
@@ -145,7 +195,7 @@ class _PollWidgetState extends State<PollWidget> {
                                 CheckboxListTile(
                                   value: checked,
                                   title: Text('$label'),
-                                  onChanged: alreadyVoted
+                                  onChanged: (alreadyVoted || isClosed || uid == null)
                                       ? null
                                       : (val) {
                                           setState(() {
@@ -172,7 +222,7 @@ class _PollWidgetState extends State<PollWidget> {
                                 value: id,
                                 groupValue: _selected.isEmpty ? (userSelected.isEmpty ? null : userSelected.first) : _selected.first,
                                 title: Text(label),
-                                onChanged: alreadyVoted
+                                onChanged: (alreadyVoted || isClosed || uid == null)
                                     ? null
                                     : (val) {
                                         setState(() {
@@ -189,7 +239,7 @@ class _PollWidgetState extends State<PollWidget> {
                         }),
 
                         // Vote button
-                        if (!alreadyVoted)
+                        if (!alreadyVoted && !isClosed && uid != null)
                           Align(
                             alignment: Alignment.centerRight,
                             child: ElevatedButton(
@@ -209,7 +259,7 @@ class _PollWidgetState extends State<PollWidget> {
                         else
                           Align(
                             alignment: Alignment.centerRight,
-                            child: Text('You voted • ${userSelected.length} option(s)'),
+                            child: Text('Vous avez voté • ${userSelected.length} option(s)'),
                           ),
                       ],
                     );

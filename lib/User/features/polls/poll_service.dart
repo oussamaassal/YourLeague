@@ -75,6 +75,22 @@ class PollService {
         .snapshots();
   }
 
+  /// Stream the current user's vote document for a poll
+  static Stream<DocumentSnapshot<Map<String, dynamic>>> streamUserVote({
+    required String matchId,
+    required String pollId,
+  }) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    return _fire
+        .collection('matches')
+        .doc(matchId)
+        .collection('polls')
+        .doc(pollId)
+        .collection('votes')
+        .doc(uid)
+        .snapshots();
+  }
+
   /// Get whether current user already voted for this poll
   static Future<DocumentSnapshot<Map<String, dynamic>>> getUserVote({
     required String matchId,
@@ -127,5 +143,24 @@ class PollService {
     // Delete poll document
     batch.delete(pollDoc.reference);
     await batch.commit();
+  }
+
+  /// Close or reopen a poll (creator-only via rules)
+  static Future<void> setPollClosed({
+    required String matchId,
+    required String pollId,
+    required bool closed,
+  }) async {
+    final ref = _fire
+        .collection('matches')
+        .doc(matchId)
+        .collection('polls')
+        .doc(pollId);
+
+    await ref.update({
+      'isClosed': closed,
+      // If closing now, stamp closesAt; if reopening, clear it
+      'closesAt': closed ? FieldValue.serverTimestamp() : null,
+    });
   }
 }
