@@ -3,14 +3,17 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../domain/entities/product.dart';
 import '../domain/entities/order.dart';
 import '../domain/entities/transaction.dart';
+    
 import '../domain/entities/review.dart';
+    
+    
 import '../domain/repos/shop_repo.dart';
 
 class FirebaseShopRepo implements ShopRepo {
   final fs.FirebaseFirestore _firestore = fs.FirebaseFirestore.instance;
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
 
-  // ==================== PRODUCT CRUD ====================
+  //         ====== PRODUCT CRUD         ======
 
   @override
   Future<void> createProduct(Product product) async {
@@ -79,7 +82,7 @@ class FirebaseShopRepo implements ShopRepo {
     }
   }
 
-  // ==================== ORDER CRUD ====================
+  //         ====== ORDER CRUD         ======
 
   @override
   Future<void> createOrder(Order order) async {
@@ -152,7 +155,7 @@ class FirebaseShopRepo implements ShopRepo {
     }
   }
 
-  // ==================== TRANSACTION CRUD ====================
+  //         ====== TRANSACTION CRUD         ======
 
   @override
   Future<void> createTransaction(Transaction transaction) async {
@@ -216,8 +219,9 @@ class FirebaseShopRepo implements ShopRepo {
       throw Exception('Failed to update transaction: $e');
     }
   }
+    
 
-  // ==================== REVIEW CRUD ====================
+  //         ====== REVIEW CRUD         ======
 
   @override
   Future<void> createReview(Review review) async {
@@ -295,5 +299,7 @@ class FirebaseShopRepo implements ShopRepo {
       throw Exception('Failed to delete review: $e');
     }
   }
+    
+    
 }
 

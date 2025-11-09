@@ -1,20 +1,29 @@
 import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+    
 import 'package:firebase_auth/firebase_auth.dart';
+    
+    
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/entities/transaction.dart';
+    
 import '../../domain/entities/review.dart';
+    
+    
 import '../../domain/repos/shop_repo.dart';
 import 'shop_states.dart';
 
 class ShopCubit extends Cubit<ShopState> {
   final ShopRepo shopRepo;
+    
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
+    
+    
 
   ShopCubit({required this.shopRepo}) : super(ShopInitial());
 
-  // ==================== PRODUCT CRUD ====================
+  //         ====== PRODUCT CRUD         ======
 
   Future<void> createProduct({
     required String name,
@@ -41,10 +50,14 @@ class ShopCubit extends Cubit<ShopState> {
       );
 
       await shopRepo.createProduct(product);
+    
       
       // Reload products after successful creation
       final products = await shopRepo.getAllProducts();
       emit(ProductsLoaded(products));
+    
+      emit(OperationSuccess('Product created successfully'));
+    
     } catch (e) {
       emit(ShopError('Failed to create product: $e'));
     }
@@ -88,10 +101,14 @@ class ShopCubit extends Cubit<ShopState> {
     try {
       emit(ShopLoading());
       await shopRepo.updateProduct(product);
+    
       
       // Reload products after successful update
       final products = await shopRepo.getAllProducts();
       emit(ProductsLoaded(products));
+    
+      emit(OperationSuccess('Product updated successfully'));
+    
     } catch (e) {
       emit(ShopError('Failed to update product: $e'));
     }
@@ -101,16 +118,20 @@ class ShopCubit extends Cubit<ShopState> {
     try {
       emit(ShopLoading());
       await shopRepo.deleteProduct(productId);
+    
       
       // Reload products after successful deletion
       final products = await shopRepo.getAllProducts();
       emit(ProductsLoaded(products));
+    
+      emit(OperationSuccess('Product deleted successfully'));
+    
     } catch (e) {
       emit(ShopError('Failed to delete product: $e'));
     }
   }
 
-  // ==================== ORDER CRUD ====================
+  //         ====== ORDER CRUD         ======
 
   Future<void> createOrder({
     required String userId,
@@ -196,7 +217,7 @@ class ShopCubit extends Cubit<ShopState> {
     }
   }
 
-  // ==================== TRANSACTION CRUD ====================
+  //         ====== TRANSACTION CRUD         ======
 
   Future<void> createTransaction({
     required String userId,
@@ -271,8 +292,9 @@ class ShopCubit extends Cubit<ShopState> {
       emit(ShopError('Failed to update transaction: $e'));
     }
   }
+    
 
-  // ==================== REVIEW CRUD ====================
+  //         ====== REVIEW CRUD         ======
 
   Future<void> createReview({
     required String productId,
@@ -340,5 +362,7 @@ class ShopCubit extends Cubit<ShopState> {
       emit(ShopError('Failed to delete review: $e'));
     }
   }
+    
+    
 }
 
