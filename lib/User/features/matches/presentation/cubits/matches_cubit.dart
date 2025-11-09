@@ -169,6 +169,13 @@ class MatchesCubit extends Cubit<MatchesState> {
     try {
       emit(MatchesLoading());
 
+      // Enforce max 8 teams in a tournament bracket
+      final existing = await matchesRepo.getLeaderboardsByTournament(tournamentId);
+      if (existing.length >= 8) {
+        emit(MatchesError('Tournament already has 8 teams.'));
+        return;
+      }
+
       final leaderboard = Leaderboard(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         tournamentId: tournamentId,
@@ -217,5 +224,86 @@ class MatchesCubit extends Cubit<MatchesState> {
       emit(MatchesError('Failed to delete leaderboard entry: $e'));
     }
   }
-}
 
+  // ==================== BRACKET DATA ====================
+
+  Future<void> getBracketData(String tournamentId) async {
+    try {
+      emit(MatchesLoading());
+      final leaderboards = await matchesRepo.getLeaderboardsByTournament(tournamentId);
+      final matches = await matchesRepo.getMatchesByTournament(tournamentId);
+      emit(BracketDataLoaded(tournamentId: tournamentId, leaderboards: leaderboards, matches: matches));
+    } catch (e) {
+      emit(MatchesError('Failed to load bracket data: $e'));
+    }
+  }
+
+  Future<void> setBracketMatchWinner({
+    required String tournamentId,
+    required String teamA,
+    required String teamB,
+    required String winnerName,
+  }) async {
+    try {
+      emit(MatchesLoading());
+      // Find an existing match between teamA and teamB
+      final matches = await matchesRepo.getMatchesByTournament(tournamentId);
+      Match? existing;
+      for (final m in matches) {
+        final same = (m.team1Name == teamA && m.team2Name == teamB) ||
+            (m.team1Name == teamB && m.team2Name == teamA);
+        if (same) {
+          existing = m;
+          break;
+        }
+      }
+
+      // Score: winner gets 1, loser 0 (minimal result)
+      int scoreA = winnerName == teamA ? 1 : 0;
+      int scoreB = winnerName == teamB ? 1 : 0;
+
+      if (existing != null) {
+        // Update existing match result
+        final updated = Match(
+          id: existing.id,
+          tournamentId: existing.tournamentId,
+          team1Id: existing.team1Id,
+          team1Name: existing.team1Name,
+          team2Id: existing.team2Id,
+          team2Name: existing.team2Name,
+          score1: existing.team1Name == teamA ? scoreA : scoreB,
+          score2: existing.team2Name == teamB ? scoreB : scoreA,
+          status: 'completed',
+          matchDate: existing.matchDate,
+          createdAt: existing.createdAt,
+          refereeId: existing.refereeId,
+          location: existing.location,
+          notes: existing.notes,
+        );
+        await matchesRepo.updateMatch(updated);
+      } else {
+        // Create a new match result
+        final now = DateTime.now();
+        final newMatch = Match(
+          id: now.millisecondsSinceEpoch.toString(),
+          tournamentId: tournamentId,
+          team1Id: 'team_${teamA.hashCode}',
+          team1Name: teamA,
+          team2Id: 'team_${teamB.hashCode}',
+          team2Name: teamB,
+          score1: scoreA,
+          score2: scoreB,
+          status: 'completed',
+          matchDate: fs.Timestamp.fromDate(now),
+          createdAt: fs.Timestamp.fromDate(now),
+        );
+        await matchesRepo.createMatch(newMatch);
+      }
+
+      emit(OperationSuccess('Winner set: $winnerName'));
+      await getBracketData(tournamentId);
+    } catch (e) {
+      emit(MatchesError('Failed to set winner: $e'));
+    }
+  }
+}

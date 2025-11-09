@@ -13,6 +13,14 @@ class FirebaseMatchesRepo implements MatchesRepo {
   Future<void> createMatch(Match match) async {
     try {
       await _firestore.collection('matches').doc(match.id).set(match.toJson());
+      // Also add reference to the tournament's matches array
+      final matchRef = _firestore.collection('matches').doc(match.id);
+      await _firestore
+          .collection('tournaments')
+          .doc(match.tournamentId)
+          .update({
+        'matches': fs.FieldValue.arrayUnion([matchRef])
+      });
     } catch (e) {
       throw Exception('Failed to create match: $e');
     }
@@ -214,4 +222,3 @@ class FirebaseMatchesRepo implements MatchesRepo {
     }
   }
 }
-

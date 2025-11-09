@@ -5,6 +5,7 @@ import 'package:yourleague/User/features/matches/presentation/cubits/matches_sta
 import 'package:yourleague/User/features/matches/domain/entities/match.dart';
 import 'package:yourleague/User/features/matches/presentation/pages/match_events_page.dart';
 import 'package:intl/intl.dart';
+import 'package:yourleague/User/features/matches/presentation/pages/bracket_page.dart';
 
 class MatchesPage extends StatefulWidget {
   const MatchesPage({super.key});
@@ -87,6 +88,21 @@ class _MatchesPageState extends State<MatchesPage> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        IconButton(
+                          icon: const Icon(Icons.account_tree),
+                          tooltip: 'Bracket',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BracketPage(
+                                  tournamentId: match.tournamentId,
+                                  highlightMatchId: match.id,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                         IconButton(
                           icon: const Icon(Icons.event_note),
                           tooltip: 'Match Events',
@@ -268,7 +284,7 @@ class _EditMatchDialogState extends State<EditMatchDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedStatus,
+            initialValue: _selectedStatus,
             decoration: const InputDecoration(labelText: 'Status'),
             items: ['scheduled', 'ongoing', 'completed', 'cancelled']
                 .map((status) => DropdownMenuItem(
@@ -323,4 +339,3 @@ class _EditMatchDialogState extends State<EditMatchDialog> {
     );
   }
 }
-
