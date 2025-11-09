@@ -17,6 +17,9 @@ class StripePaymentService {
   static Future<Map<String, dynamic>> createPaymentIntent(
       String amount, String currency) async {
     try {
+      print('🔵 Attempting to connect to: $_backendUrl/create-payment-intent');
+      print('🔵 Amount: $amount, Currency: $currency');
+      
       final response = await http.post(
         Uri.parse('$_backendUrl/create-payment-intent'),
         headers: {
@@ -28,12 +31,16 @@ class StripePaymentService {
         }),
       );
 
+      print('🔵 Response status: ${response.statusCode}');
+      print('🔵 Response body: ${response.body}');
+
       if (response.statusCode >= 200 && response.statusCode < 300) {
         return jsonDecode(response.body) as Map<String, dynamic>;
       }
 
       throw Exception('Failed to create payment intent: ${response.statusCode} ${response.body}');
     } catch (e) {
+      print('🔴 Error creating payment intent: $e');
       throw Exception('Failed to create payment intent: $e');
     }
   }
