@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:yourleague/User/Components/welcome_page.dart';
@@ -21,7 +22,14 @@ import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'firebase_options.dart';
 
+import 'package:yourleague/TeamsAndPlayers/notifications/notification_service.dart';
+import 'package:yourleague/TeamsAndPlayers/notifications/fcm_setup.dart';
 
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  final n = message.notification;
+  if (n != null) await NotificationService.show(n);
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,8 +38,11 @@ void main() async {
   try {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     firebaseInitialized = true;
+
+    await NotificationService.init();
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   } catch (e) {
-    print("ℹ️  Firebase not connected yet - showing welcome page");
+    print("ℹ️ Firebase not connected yet - showing welcome page");
     firebaseInitialized = false;
   }
 
@@ -40,47 +51,33 @@ void main() async {
 
 class MyApp extends StatelessWidget {
   final bool firebaseEnabled;
-
   const MyApp({super.key, this.firebaseEnabled = false});
 
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-      // Set up all state management (BLoC pattern)
       providers: [
-        // Handles user authentication (login/register/logout)
         BlocProvider<AuthCubit>(
-          create: (context) =>
-          AuthCubit(authRepo: FirebaseAuthRepo())..checkAuth(),
+          create: (context) => AuthCubit(authRepo: FirebaseAuthRepo())..checkAuth(),
         ),
-
-        // Handles blocking users & reporting content
         BlocProvider<ModerationCubit>(
           create: (context) =>
               ModerationCubit(moderationRepo: FirebaseModerationRepo()),
         ),
-
         BlocProvider<ChatCubit>(
-            create: (context) => ChatCubit(chatRepo: FirebaseChatRepo())
+          create: (context) => ChatCubit(chatRepo: FirebaseChatRepo()),
         ),
-
-        // Handles shop operations (products, orders, transactions)
         BlocProvider<ShopCubit>(
           create: (context) => ShopCubit(shopRepo: FirebaseShopRepo()),
         ),
-
-        // Handles shopping cart
         BlocProvider<CartCubit>(
           create: (context) => CartCubit(),
         ),
-
-        // Handles matches and tournaments
         BlocProvider<MatchesCubit>(
-          create: (context) => MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
+          create: (context) =>
+              MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
         ),
-
       ],
-
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Your League',
@@ -88,17 +85,17 @@ class MyApp extends StatelessWidget {
         darkTheme: darkMode,
         home: firebaseEnabled ? _buildAppBody() : const WelcomePage(),
       ),
-
     );
   }
-
-
 
   Widget _buildAppBody() {
     return BlocConsumer<AuthCubit, AuthState>(
       builder: (context, state) {
         if (state is Unauthenticated) return const AuthPage();
-        if (state is Authenticated) return const HomePage();
+        if (state is Authenticated) {
+          setupFCM(state.user.uid);
+          return const HomePage();
+        }
         return const LoadingScreen();
       },
       listener: (context, state) {
@@ -106,7 +103,6 @@ class MyApp extends StatelessWidget {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(state.message)));
         }
-
       },
     );
   }

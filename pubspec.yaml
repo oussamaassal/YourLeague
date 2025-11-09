@@ -10,32 +10,48 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
+  http: ^1.2.2
   cupertino_icons: ^1.0.8
+
+  # Firebase core + auth + firestore (your versions)
   firebase_core: ^4.2.0
-  flutter_bloc: ^9.1.1
   firebase_auth: ^6.1.1
+  cloud_firestore: ^6.0.3
+
+  # State management
+  flutter_bloc: ^9.1.1
+
+  # Sign-in
   sign_in_with_apple: ^7.0.1
   google_sign_in: ^6.2.2
-  cloud_firestore: ^6.0.3
+
+  # Purchases / payments
   purchases_flutter: ^9.8.0
+
+  # Utils
   url_launcher: ^6.3.2
   intl: ^0.19.0
 
-  # ⬇️ NEW: for scanning + generating QR codes
+  # QR scan / generate
   mobile_scanner: ^5.1.1
   qr_flutter: ^4.1.0
+
+  # 🔔 Push notifications (compatible with your firebase_core/firebase_auth)
+  firebase_messaging: ^16.0.3
+
+  # 📲 Local notifications for showing banner when app is open
+  flutter_local_notifications: ^17.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_launcher_icons: "^0.13.1"
+  flutter_launcher_icons: ^0.13.1
+  flutter_lints: ^5.0.0
 
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
   image_path: "lib/User/assets/logo.png"
-  flutter_lints: ^5.0.0
 
 flutter:
   uses-material-design: true

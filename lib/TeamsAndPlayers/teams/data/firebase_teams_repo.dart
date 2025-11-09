@@ -68,25 +68,43 @@ class FirebaseTeamsRepo implements TeamsRepo {
   // That lets a single collectionGroup('members') query cover both owner & member cases.
   @override
   Stream<List<Team>> watchTeamsForUser(String uid) {
+    // Watch changes to teams collection where user is owner OR member
     return _db
         .collectionGroup('members')
         .where('userId', isEqualTo: uid)
         .snapshots()
-        .asyncMap((memberSnaps) async {
-      final seen = <String>{};
-      final teams = <Team>[];
-      for (final m in memberSnaps.docs) {
-        final parentTeamRef = m.reference.parent.parent; // /teams/{teamId}
-        if (parentTeamRef == null) continue;
-        if (!seen.add(parentTeamRef.id)) continue; // de-dupe
-        final tSnap = await (parentTeamRef as DocumentReference<Map<String, dynamic>>).get();
-        if (tSnap.exists && tSnap.data() != null) {
-          teams.add(_toTeam(tSnap));
-        }
-      }
-      teams.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      return teams;
-    });
+        .asyncMap((memberSnap) async {
+          final teams = <Team>[];
+          final seenTeamIds = <String>{};
+
+          // For each member document
+          for (final memberDoc in memberSnap.docs) {
+            try {
+              // Get teamId from path: teams/{teamId}/members/{memberId}
+              final pathParts = memberDoc.reference.path.split('/');
+              if (pathParts.length >= 2) {
+                final teamId = pathParts[1];
+
+                // Only fetch each team once
+                if (!seenTeamIds.contains(teamId)) {
+                  final teamDoc = await _teams.doc(teamId).get();
+                  if (teamDoc.exists) {
+                    teams.add(_toTeam(teamDoc));
+                    seenTeamIds.add(teamId);
+                  }
+                }
+              }
+            } catch (e) {
+              print('Error fetching team: $e');
+              // Continue to next member doc even if one fails
+              continue;
+            }
+          }
+
+          // Sort by creation date (newest first)
+          teams.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return teams;
+        });
   }
 
   // ───────────────── Browse by category (public teams) ─────────────────
@@ -108,7 +126,10 @@ class FirebaseTeamsRepo implements TeamsRepo {
     bool isPublic = true,
   }) async {
     final now = DateTime.now();
-    final ref = await _teams.add({
+
+    // First create the team document
+    final teamRef = _teams.doc();
+    await teamRef.set({
       'name': name,
       'ownerUid': ownerUid,
       'category': teamCategoryToString(category),
@@ -116,15 +137,16 @@ class FirebaseTeamsRepo implements TeamsRepo {
       'createdAt': Timestamp.fromDate(now),
     });
 
-    // Add owner as member
-    await ref.collection('members').add({
+    // Then add the owner as a member
+    await teamRef.collection('members').add({
       'userId': ownerUid,
-      'role': 'owner',
+      'role': memberRoleToString(MemberRole.owner),
       'createdAt': Timestamp.fromDate(now),
     });
 
+    // Return the team entity
     return Team(
-      id: ref.id,
+      id: teamRef.id,
       name: name,
       ownerUid: ownerUid,
       category: category,
