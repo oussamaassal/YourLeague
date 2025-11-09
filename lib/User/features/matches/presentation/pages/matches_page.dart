@@ -17,6 +17,13 @@ class MatchesPage extends StatefulWidget {
 }
 
 class _MatchesPageState extends State<MatchesPage> {
+  // Compact action options for each match card
+  static const _menuBracket = 'Bracket';
+  static const _menuRemind = 'Reminder (15 min)';
+  static const _menuEvents = 'Match Events';
+  static const _menuEdit = 'Edit';
+  static const _menuDelete = 'Delete';
+
   @override
   void initState() {
     super.initState();
@@ -75,25 +82,37 @@ class _MatchesPageState extends State<MatchesPage> {
                 return Card(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListTile(
+                    isThreeLine: true,
                     leading: CircleAvatar(
-                      child: Text(match.status[0].toUpperCase()),
+                      child: Text(match.status.isNotEmpty ? match.status[0].toUpperCase() : '?'),
                     ),
-                    title: Text('${match.team1Name} vs ${match.team2Name}'),
+                    title: Text('${match.team1Name} vs ${match.team2Name}', overflow: TextOverflow.ellipsis),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text('Score: ${match.score1} - ${match.score2}'),
                         Text('Status: ${match.status}'),
                         Text('Date: ${DateFormat('MMM dd, yyyy HH:mm').format(match.matchDate.toDate())}'),
                       ],
                     ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.notifications_active),
-                          tooltip: 'Rappel 15 min avant',
-                          onPressed: () async {
+                    trailing: PopupMenuButton<String>(
+                      tooltip: 'More',
+                      icon: const Icon(Icons.more_vert),
+                      onSelected: (value) async {
+                        switch (value) {
+                          case _menuBracket:
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BracketPage(
+                                  tournamentId: match.tournamentId,
+                                  highlightMatchId: match.id,
+                                ),
+                              ),
+                            );
+                            break;
+                          case _menuRemind:
                             final int notifId = match.id.hashCode & 0x7fffffff;
                             final success = await NotificationService.instance.scheduleMatchReminder(
                               matchDateTime: match.matchDate.toDate(),
@@ -104,62 +123,41 @@ class _MatchesPageState extends State<MatchesPage> {
                               reminderMinutes: 15,
                             );
                             if (!context.mounted) return;
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Rappel programmé 15 min avant le match')),
-                              );
-                            } else {
-                              final msg = kIsWeb
-                                  ? 'Les rappels locaux ne sont pas disponibles sur le web dans cette build.'
-                                  : 'Rappel non programmé (match trop proche ou passé).';
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(msg)),
-                              );
-                            }
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.account_tree),
-                          tooltip: 'Bracket',
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => BracketPage(
-                                  tournamentId: match.tournamentId,
-                                  highlightMatchId: match.id,
-                                ),
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(success
+                                    ? 'Rappel programmé 15 min avant le match'
+                                    : (kIsWeb
+                                        ? 'Les rappels locaux ne sont pas disponibles sur le web dans cette build.'
+                                        : 'Rappel non programmé (match trop proche ou passé).')),
                               ),
                             );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.event_note),
-                          tooltip: 'Match Events',
-                          onPressed: () {
+                            break;
+                          case _menuEvents:
                             Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) => MatchEventsPage(matchId: match.id),
                               ),
                             );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () {
+                            break;
+                          case _menuEdit:
                             showDialog(
                               context: context,
                               builder: (context) => EditMatchDialog(match: match),
                             );
-                          },
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete),
-                          onPressed: () {
+                            break;
+                          case _menuDelete:
                             context.read<MatchesCubit>().deleteMatch(match.id);
-                          },
-                        ),
+                            break;
+                        }
+                      },
+                      itemBuilder: (ctx) => [
+                        const PopupMenuItem(value: _menuBracket, child: ListTile(leading: Icon(Icons.account_tree), title: Text(_menuBracket))),
+                        const PopupMenuItem(value: _menuRemind, child: ListTile(leading: Icon(Icons.notifications_active), title: Text(_menuRemind))),
+                        const PopupMenuItem(value: _menuEvents, child: ListTile(leading: Icon(Icons.event_note), title: Text(_menuEvents))),
+                        const PopupMenuItem(value: _menuEdit, child: ListTile(leading: Icon(Icons.edit), title: Text(_menuEdit))),
+                        const PopupMenuItem(value: _menuDelete, child: ListTile(leading: Icon(Icons.delete), title: Text(_menuDelete))),
                       ],
                     ),
                   ),
