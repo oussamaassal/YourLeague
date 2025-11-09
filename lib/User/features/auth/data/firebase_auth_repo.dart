@@ -4,7 +4,6 @@ FIREBASE IS OUR BACKEND - You can swap out any backend here..
 
 */
 
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -14,10 +13,6 @@ import '../domain/repos/auth_repo.dart';
 class FirebaseAuthRepo implements AuthRepo {
   // access to firebase
   final FirebaseAuth firebaseAuth = FirebaseAuth.instance;
-  // access to firebase firestore
-  final FirebaseFirestore firestore = FirebaseFirestore.instance; // <-- 2. ADD FIRESTORE INSTANCE
-
-
 
   // LOGIN: Email & Password
   @override
@@ -55,37 +50,13 @@ class FirebaseAuthRepo implements AuthRepo {
       // create user
       AppUser user = AppUser(uid: userCredential.user!.uid, email: email);
 
-      // Step C (THE FIX): Save the user's data to the 'users' collection in Firestore
-      await firestore.collection('users').doc(user.uid).set({
-        'uid': user.uid,
-        'email': user.email,
-        'name': name, // Save the name passed into the function
-        'createdAt': FieldValue.serverTimestamp(), // Good practice to add a timestamp
-      });
-
       // return user
       return user;
     }
+
     // any errors..
-    on FirebaseAuthException catch (e) {
-      // This block runs if Firebase returns a specific authentication error
-      print("Registration failed with FirebaseAuthException code: ${e.code}");
-
-      if (e.code == 'weak-password') {
-        throw Exception('The password provided is too weak.');
-      } else if (e.code == 'email-already-in-use') {
-        throw Exception('An account already exists for that email.');
-      } else if (e.code == 'invalid-email') {
-        throw Exception('The email address is not valid.');
-      } else {
-        // Handle other Firebase-specific errors
-        throw Exception('Registration failed. Please try again.');
-      }
-
-    } catch (e) {
-      // This block catches any other unexpected errors (e.g., network issues)
-      print("An unexpected error occurred during registration: $e");
-      throw Exception('An unexpected error occurred. Please check your connection.');
+    catch (e) {
+      throw Exception('Registration failed: $e');
     }
   }
 
