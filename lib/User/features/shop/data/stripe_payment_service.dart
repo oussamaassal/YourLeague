@@ -77,13 +77,18 @@ class StripePaymentService {
   static Future<bool> processPayment(
       BuildContext context, String amount, String currency) async {
     try {
+      print('🟢 Starting payment process...');
+      
       // 1. Ensure backend reachable
       await _ensureBackendReachable();
+      print('🟢 Backend is reachable');
 
       // 2. Create payment intent via backend
       final paymentIntent = await createPaymentIntent(amount, currency);
+      print('🟢 Payment intent created: ${paymentIntent['clientSecret']?.substring(0, 20)}...');
 
-      // 3. Init payment sheet
+      // 3. Init payment sheet with proper configuration
+      print('🟢 Initializing payment sheet...');
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: paymentIntent['clientSecret'] as String,
@@ -91,15 +96,30 @@ class StripePaymentService {
           style: ThemeMode.system,
           returnURL: 'yourleague://stripe-redirect',
           allowsDelayedPaymentMethods: true,
+          // These settings help keep the payment in-app
+          googlePay: PaymentSheetGooglePay(
+            merchantCountryCode: 'US',
+            currencyCode: currency.toUpperCase(),
+            testEnv: true,
+          ),
         ),
       );
+      print('🟢 Payment sheet initialized');
+
+      // Small delay to ensure sheet is ready
+      await Future.delayed(const Duration(milliseconds: 300));
 
       // 4. Present payment sheet to user
+      print('🟢 Presenting payment sheet...');
       await Stripe.instance.presentPaymentSheet();
+      print('🟢 Payment sheet completed successfully');
 
       if (!context.mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Payment completed successfully!')),
+        const SnackBar(
+          content: Text('✅ Payment completed successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
       return true;
     } on StripeException catch (e) {
@@ -107,9 +127,13 @@ class StripePaymentService {
       
       // User cancelled the payment
       if (e.error.code == FailureCode.Canceled) {
+        print('🟡 Payment cancelled by user');
         if (!context.mounted) return false;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment cancelled')),
+          const SnackBar(
+            content: Text('Payment cancelled'),
+            backgroundColor: Colors.orange,
+          ),
         );
         return false;
       }
@@ -117,14 +141,20 @@ class StripePaymentService {
       if (!context.mounted) return false;
       final msg = e.error.message ?? e.error.localizedMessage ?? 'Payment failed';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Stripe: $msg')),
+        SnackBar(
+          content: Text('❌ Stripe: $msg'),
+          backgroundColor: Colors.red,
+        ),
       );
       return false;
     } catch (e) {
       print('🔴 Payment error: $e');
       if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ Payment error: $e')),
+        SnackBar(
+          content: Text('❌ Payment error: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
       return false;
     }
