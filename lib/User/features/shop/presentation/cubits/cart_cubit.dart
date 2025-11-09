@@ -1,19 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-    
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../domain/entities/cart_item.dart';
 import '../../data/email_service.dart';
-    
-import '../../domain/entities/cart_item.dart';
-    
 import 'cart_states.dart';
 
 class CartCubit extends Cubit<CartState> {
   final List<CartItem> _items = [];
-    
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-    
-    
 
   CartCubit() : super(CartInitial());
 
@@ -23,32 +16,21 @@ class CartCubit extends Cubit<CartState> {
 
   double get totalAmount => _items.fold(0.0, (sum, item) => sum + item.total);
 
-    
   void addItem(CartItem item) async {
-    final existingItemIndex = _items.indexWhere((i) => i.productId == item.productId);
-
-    if (existingItemIndex != -1) {
-    
-  void addItem(CartItem item) {
     // Check if item already exists in cart
     final existingItemIndex = _items.indexWhere((i) => i.productId == item.productId);
 
     if (existingItemIndex != -1) {
       // Update quantity if item exists
-    
       _items[existingItemIndex] = _items[existingItemIndex].copyWith(
         quantity: _items[existingItemIndex].quantity + item.quantity,
       );
     } else {
-    
-    
       // Add new item
-    
       _items.add(item);
     }
 
     emit(CartUpdated(_items));
-    
 
     final currentUser = _firebaseAuth.currentUser;
     if (currentUser?.email != null) {
@@ -59,8 +41,6 @@ class CartCubit extends Cubit<CartState> {
         quantity: item.quantity,
       );
     }
-    
-    
   }
 
   void removeItem(String productId) {

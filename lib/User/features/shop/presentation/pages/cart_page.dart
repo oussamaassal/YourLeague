@@ -248,11 +248,7 @@ class CartPage extends StatelessWidget {
         orderId: DateTime.now().millisecondsSinceEpoch.toString(),
         type: 'purchase',
         amount: cartCubit.totalAmount,
-    
         paymentMethod: 'stripe',
-    
-        paymentMethod: 'credit_card',
-    
       );
 
       // Clear cart
@@ -261,11 +257,7 @@ class CartPage extends StatelessWidget {
       // Show success message
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-    
           const SnackBar(content: Text('Payment successful! Order placed.')),
-    
-          const SnackBar(content: Text('Order placed successfully!')),
-    
         );
         Navigator.pop(context);
       }

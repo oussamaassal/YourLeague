@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../../../../config/api_config.dart';
 
 class EmailService {
-  static const String _backendUrl = 'http://10.0.2.2:3000';
+  static String get _backendUrl => ApiConfig.baseUrl;
 
   static Future<bool> sendCartConfirmation({
     required String userEmail,

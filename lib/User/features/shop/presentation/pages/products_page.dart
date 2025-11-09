@@ -179,22 +179,18 @@ class _ProductsPageState extends State<ProductsPage> {
   }
 
   Widget _buildProductsList() {
-    
     return BlocConsumer<ShopCubit, ShopState>(
-          listener: (context, state) {
-            if (state is ShopError) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          },
-    
-    return BlocBuilder<ShopCubit, ShopState>(
-    
-          builder: (context, state) {
+      listener: (context, state) {
+        if (state is ShopError) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(state.message),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      },
+      builder: (context, state) {
             if (state is ShopLoading) {
               return const Center(child: CircularProgressIndicator());
             }
@@ -235,7 +231,6 @@ class _ProductsPageState extends State<ProductsPage> {
                   final product = filteredAndSorted[index];
                   return Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-    
                     child: InkWell(
                       onTap: () {
                         Navigator.push(
@@ -251,129 +246,6 @@ class _ProductsPageState extends State<ProductsPage> {
                           children: [
                             // Product Image
                             product.imageUrl != null && product.imageUrl!.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(
-                                      product.imageUrl!,
-                                      width: 80,
-                                      height: 80,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) =>
-                                          Container(
-                                            width: 80,
-                                            height: 80,
-                                            color: Colors.grey[300],
-                                            child: Icon(Icons.image, size: 40),
-                                          ),
-                                    ),
-                                  )
-                                : Container(
-                                    width: 80,
-                                    height: 80,
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue[100],
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        product.name[0].toUpperCase(),
-                                        style: const TextStyle(fontSize: 32),
-                                      ),
-                                    ),
-                                  ),
-                            const SizedBox(width: 12),
-                            // Product Info
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    product.name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    product.category,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    '\$${product.price.toStringAsFixed(2)}',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
-                                  ),
-                                  if (!product.isAvailable)
-                                    const Text(
-                                      'Out of Stock',
-                                      style: TextStyle(
-                                        color: Colors.red,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                            // Action Buttons
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (product.isAvailable)
-                                  IconButton(
-                                    icon: const Icon(Icons.shopping_cart),
-                                    onPressed: () {
-                                      // Add to cart
-                                      final cartItem = CartItem(
-                                        productId: product.id,
-                                        name: product.name,
-                                        price: product.price,
-                                        quantity: 1,
-                                        imageUrl: product.imageUrl,
-                                        category: product.category,
-                                      );
-                                      context.read<CartCubit>().addItem(cartItem);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('${product.name} added to cart'),
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                IconButton(
-                                  icon: const Icon(Icons.edit),
-                                  onPressed: () {
-                                    // Edit product
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => EditProductDialog(product: product),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.delete),
-                                  onPressed: () {
-                                    context.read<ShopCubit>().deleteProduct(product.id);
-                                  },
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-    
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        children: [
-                          // Product Image
-                          product.imageUrl != null && product.imageUrl!.isNotEmpty
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
                                   child: Image.network(
@@ -488,8 +360,8 @@ class _ProductsPageState extends State<ProductsPage> {
                               ),
                             ],
                           ),
-                        ],
-    
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -497,15 +369,7 @@ class _ProductsPageState extends State<ProductsPage> {
               );
             }
 
-    
             return const Center(child: Text('Loading products...'));
-    
-            if (state is ShopError) {
-              return Center(child: Text('Error: ${state.message}'));
-            }
-
-            return const Center(child: Text('No data'));
-    
           },
         );
   }

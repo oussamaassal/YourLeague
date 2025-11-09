@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
+import '../../../../config/api_config.dart';
 
 class StripePaymentService {
-  static const String _backendUrl = 'http://10.0.2.2:3000';
+  static String get _backendUrl => ApiConfig.baseUrl;
 
   // Initialize Stripe with your publishable key
   static Future<void> initialize() async {
