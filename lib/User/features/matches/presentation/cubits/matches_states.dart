@@ -41,6 +41,17 @@ class LeaderboardsLoaded extends MatchesState {
   LeaderboardsLoaded(this.leaderboards);
 }
 
+// Bracket data state (leaderboards + matches for a tournament)
+class BracketDataLoaded extends MatchesState {
+  final String tournamentId;
+  final List<Leaderboard> leaderboards;
+  final List<Match> matches;
+  BracketDataLoaded(
+      {required this.tournamentId,
+      required this.leaderboards,
+      required this.matches});
+}
+
 // Success/Error States
 class OperationSuccess extends MatchesState {
   final String message;
@@ -51,4 +62,3 @@ class MatchesError extends MatchesState {
   final String message;
   MatchesError(this.message);
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import '../models/notification_model.dart';
 import 'notification_storage_service.dart';
@@ -15,14 +16,16 @@ class NotificationService {
   Future<void> init() async {
     if (_initialized) return;
 
-    // Web: local notifications via this plugin are not supported; gracefully skip.
     if (kIsWeb) {
       _initialized = true;
       return;
     }
 
-    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const DarwinInitializationSettings iosSettings = DarwinInitializationSettings(
+    // Initialize timezone database
+    tzdata.initializeTimeZones();
+
+    final AndroidInitializationSettings androidSettings = const AndroidInitializationSettings('@mipmap/ic_launcher');
+    final DarwinInitializationSettings iosSettings = const DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
@@ -35,10 +38,8 @@ class NotificationService {
     );
 
     await _plugin.initialize(initSettings);
-    
-    // Demander les permissions explicitement
     await _requestPermissions();
-    
+
     _initialized = true;
   }
 
@@ -82,7 +83,7 @@ class NotificationService {
 
     final String notificationBody = body ?? 'Ton match "$matchTitle" est dans $reminderMinutes min';
 
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    final AndroidNotificationDetails androidDetails = const AndroidNotificationDetails(
       'matches_channel',
       'Matches Notifications',
       channelDescription: 'Notifications de rappel pour les matches',
@@ -93,7 +94,7 @@ class NotificationService {
       playSound: true,
     );
 
-    const DarwinNotificationDetails iosDetails = DarwinNotificationDetails(
+    final DarwinNotificationDetails iosDetails = const DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
@@ -106,6 +107,7 @@ class NotificationService {
     );
 
     try {
+      // Use UTC for scheduling to avoid device TZ issues
       final tz.TZDateTime scheduled = tz.TZDateTime.from(trigger.toUtc(), tz.UTC);
       await _plugin.zonedSchedule(
         notificationId,

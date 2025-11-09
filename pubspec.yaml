@@ -44,22 +44,28 @@ dependencies:
   firebase_storage: ^13.0.4
   purchases_flutter: ^9.8.0
   url_launcher: ^6.3.2
-    
+
   flutter_stripe: ^10.1.0
   http: ^1.2.0
   cloudinary_public: ^0.23.1
   image_picker: ^1.1.2
-    
+
   intl: ^0.19.0
   flutter_local_notifications: ^17.1.2
   shared_preferences: ^2.2.2
   file_picker: ^8.1.2
-    
 
- # ⬇️ NEW: for scanning + generating QR codes
+  # Map dependencies for OpenStreetMap picker
+  flutter_map: ^6.2.1
+  latlong2: ^0.9.1
+
+  # Scanning + generating QR codes
   mobile_scanner: ^5.1.1
   qr_flutter: ^4.1.0
-  
+
+  # Timezone database for zoned scheduling
+  timezone: ^0.9.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

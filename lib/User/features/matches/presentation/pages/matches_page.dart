@@ -5,6 +5,7 @@ import 'package:yourleague/User/features/matches/presentation/cubits/matches_sta
 import 'package:yourleague/User/features/matches/domain/entities/match.dart';
 import 'package:yourleague/User/features/matches/presentation/pages/match_events_page.dart';
 import 'package:intl/intl.dart';
+import 'package:yourleague/User/features/matches/presentation/pages/bracket_page.dart';
 import 'package:yourleague/User/services/notification_service.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
@@ -118,6 +119,21 @@ class _MatchesPageState extends State<MatchesPage> {
                           },
                         ),
                         IconButton(
+                          icon: const Icon(Icons.account_tree),
+                          tooltip: 'Bracket',
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => BracketPage(
+                                  tournamentId: match.tournamentId,
+                                  highlightMatchId: match.id,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        IconButton(
                           icon: const Icon(Icons.event_note),
                           tooltip: 'Match Events',
                           onPressed: () {
@@ -177,7 +193,6 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
   final _locationController = TextEditingController();
   final _notesController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
-  TimeOfDay _selectedTime = TimeOfDay.now();
 
   @override
   void dispose() {
@@ -202,18 +217,6 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
     if (picked != null && picked != _selectedDate) {
       setState(() {
         _selectedDate = picked;
-      });
-    }
-  }
-
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-    );
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
       });
     }
   }
@@ -248,10 +251,6 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
                 onPressed: () => _selectDate(context),
                 child: Text('Date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}'),
               ),
-              TextButton(
-                onPressed: () => _selectTime(context),
-                child: Text('Time: ${_selectedTime.hour.toString().padLeft(2, '0')}:${_selectedTime.minute.toString().padLeft(2, '0')}'),
-              ),
               TextFormField(
                 controller: _locationController,
                 decoration: const InputDecoration(labelText: 'Location (Optional)'),
@@ -268,13 +267,6 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
         ElevatedButton(
           onPressed: () {
             if (_formKey.currentState!.validate()) {
-              final combinedDateTime = DateTime(
-                _selectedDate.year,
-                _selectedDate.month,
-                _selectedDate.day,
-                _selectedTime.hour,
-                _selectedTime.minute,
-              );
               context.read<MatchesCubit>().createMatch(
                 tournamentId: _tournamentIdController.text,
                 team1Id: 'team1_${DateTime.now().millisecondsSinceEpoch}',
@@ -282,7 +274,7 @@ class _AddMatchDialogState extends State<AddMatchDialog> {
                 team2Id: 'team2_${DateTime.now().millisecondsSinceEpoch}',
                 team2Name: _team2NameController.text,
                 location: _locationController.text.isEmpty ? null : _locationController.text,
-                matchDate: combinedDateTime,
+                matchDate: _selectedDate,
               );
               Navigator.pop(context);
             }
@@ -322,7 +314,7 @@ class _EditMatchDialogState extends State<EditMatchDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           DropdownButtonFormField<String>(
-            value: _selectedStatus,
+            initialValue: _selectedStatus,
             decoration: const InputDecoration(labelText: 'Status'),
             items: ['scheduled', 'ongoing', 'completed', 'cancelled']
                 .map((status) => DropdownMenuItem(
@@ -377,4 +369,3 @@ class _EditMatchDialogState extends State<EditMatchDialog> {
     );
   }
 }
-

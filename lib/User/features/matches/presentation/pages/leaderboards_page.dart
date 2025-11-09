@@ -3,6 +3,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_cubit.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_states.dart';
 import 'package:yourleague/User/features/matches/domain/entities/leaderboard.dart';
+import 'package:yourleague/User/features/matches/presentation/pages/bracket_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' as fs;
+import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dart';
 
 class LeaderboardsPage extends StatefulWidget {
   final String tournamentId;
@@ -15,187 +18,221 @@ class LeaderboardsPage extends StatefulWidget {
 class _LeaderboardsPageState extends State<LeaderboardsPage> {
   String get tournamentName => widget.tournamentId.replaceAll('tournament', 'Tournament ');
 
+  List<Leaderboard> _lastLeaderboards = const [];
+  bool _isOrganizer = false;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<MatchesCubit>().getLeaderboardsByTournament(widget.tournamentId);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<MatchesCubit>().getLeaderboardsByTournament(widget.tournamentId);
+      await _loadOrganizer();
     });
+  }
+
+  Future<void> _loadOrganizer() async {
+    try {
+      final currentUid = context.read<AuthCubit>().currentUser?.uid;
+      if (currentUid == null) return;
+      final doc = await fs.FirebaseFirestore.instance.collection('tournaments').doc(widget.tournamentId).get();
+      if (!doc.exists) return;
+      final data = doc.data() as Map<String, dynamic>;
+      final organizerRef = data['organizer'];
+      String? organizerUid;
+      if (organizerRef is fs.DocumentReference) organizerUid = organizerRef.id;
+      if (organizerRef is String) {
+        final parts = organizerRef.split('/');
+        organizerUid = parts.isNotEmpty ? parts.last : null;
+      }
+      setState(() {
+        _isOrganizer = organizerUid != null && organizerUid == currentUid;
+      });
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
+    final canAdd = _isOrganizer; // only organizer can add/modify teams
+
     return Scaffold(
       appBar: AppBar(
         title: Text(tournamentName),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Icons.account_tree),
+            tooltip: 'Bracket',
             onPressed: () {
-              showDialog(
-                context: context,
-                builder: (context) => AddLeaderboardDialog(tournamentId: widget.tournamentId),
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => BracketPage(tournamentId: widget.tournamentId),
+                ),
               );
             },
           ),
+          if (canAdd)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AddLeaderboardDialog(tournamentId: widget.tournamentId),
+                );
+              },
+            ),
         ],
       ),
       body: BlocConsumer<MatchesCubit, MatchesState>(
-        listener: (context, state) {
+        listener: (context, state) async {
           if (state is OperationSuccess) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
-            // Ne pas recharger ici car c'est déjà fait dans le cubit
           }
           if (state is MatchesError) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(state.message)),
             );
+            // keep showing last loaded data
+          }
+          if (state is LeaderboardsLoaded) {
+            setState(() {
+              _lastLeaderboards = state.leaderboards;
+            });
           }
         },
         builder: (context, state) {
-          if (state is LeaderboardsLoaded) {
-            if (state.leaderboards.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.leaderboard, size: 80, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No leaderboard entries',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Add teams to see tournament standings',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              );
-            }
+          final leaderboards = (state is LeaderboardsLoaded) ? state.leaderboards : _lastLeaderboards;
 
-            return Column(
-              children: [
-                // Header avec info
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Theme.of(context).colorScheme.primaryContainer,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Tournament Standings',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              '${state.leaderboards.length} teams',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: () {
-                          _showModifierDialog(context, state.leaderboards);
-                        },
-                        tooltip: 'Modify Leaderboard',
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh),
-                        onPressed: () {
-                          context.read<MatchesCubit>().getLeaderboardsByTournament(widget.tournamentId);
-                        },
-                        tooltip: 'Refresh',
-                      ),
-                    ],
+          if (leaderboards.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.leaderboard, size: 80, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No leaderboard entries',
+                    style: Theme.of(context).textTheme.titleLarge,
                   ),
-                ),
-                // DataTable
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('Rank')),
-                  DataColumn(label: Text('Team')),
-                  DataColumn(label: Text('MP')),
-                  DataColumn(label: Text('W')),
-                  DataColumn(label: Text('D')),
-                  DataColumn(label: Text('L')),
-                  DataColumn(label: Text('GF')),
-                  DataColumn(label: Text('GA')),
-                  DataColumn(label: Text('GD')),
-                  DataColumn(label: Text('Pts')),
+                  const SizedBox(height: 8),
+                  Text(
+                    canAdd ? 'Add teams to see tournament standings' : 'Waiting for organizer to add teams',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
                 ],
-                rows: state.leaderboards.asMap().entries.map((entry) {
-                  final index = entry.key;
-                  final leaderboard = entry.value;
-                  return DataRow(
-                    cells: [
-                      DataCell(
-                        Row(
-                          children: [
-                            Text('${index + 1}'),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                              onPressed: () => _showDeleteConfirmation(context, leaderboard),
-                              tooltip: 'Delete team',
-                            ),
-                          ],
-                        ),
-                      ),
-                      DataCell(
-                        GestureDetector(
-                          onTap: () => _showEditTeamDialog(context, leaderboard),
-                          child: Text(leaderboard.teamName),
-                        ),
-                      ),
-                      DataCell(
-                        GestureDetector(
-                          onTap: () => _showEditTeamDialog(context, leaderboard),
-                          child: Text(leaderboard.matchesPlayed.toString()),
-                        ),
-                      ),
-                      DataCell(
-                        GestureDetector(
-                          onTap: () => _showEditTeamDialog(context, leaderboard),
-                          child: Text(leaderboard.wins.toString()),
-                        ),
-                      ),
-                      DataCell(Text(leaderboard.draws.toString())),
-                      DataCell(Text(leaderboard.losses.toString())),
-                      DataCell(Text(leaderboard.goalsFor.toString())),
-                      DataCell(Text(leaderboard.goalsAgainst.toString())),
-                      DataCell(Text(leaderboard.goalDifference.toString())),
-                      DataCell(
-                        Text(
-                          leaderboard.points.toString(),
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             );
           }
 
-          // État par défaut - loading
-          return const Center(child: CircularProgressIndicator());
+          return Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                color: Theme.of(context).colorScheme.primaryContainer,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Tournament Standings',
+                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                          Text(
+                            '${leaderboards.length} / 8 teams',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () {
+                        context.read<MatchesCubit>().getLeaderboardsByTournament(widget.tournamentId);
+                      },
+                      tooltip: 'Refresh',
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('Rank')),
+                      DataColumn(label: Text('Team')),
+                      DataColumn(label: Text('MP')),
+                      DataColumn(label: Text('W')),
+                      DataColumn(label: Text('D')),
+                      DataColumn(label: Text('L')),
+                      DataColumn(label: Text('GF')),
+                      DataColumn(label: Text('GA')),
+                      DataColumn(label: Text('GD')),
+                      DataColumn(label: Text('Pts')),
+                    ],
+                    rows: leaderboards.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final lb = entry.value;
+                      return DataRow(
+                        cells: [
+                          DataCell(
+                            Row(
+                              children: [
+                                Text('${index + 1}'),
+                                if (canAdd) ...[
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                                    onPressed: () => _showDeleteConfirmation(context, lb),
+                                    tooltip: 'Delete team',
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          DataCell(
+                            GestureDetector(
+                              onTap: canAdd ? () => _showEditTeamDialog(context, lb) : null,
+                              child: Text(lb.teamName),
+                            ),
+                          ),
+                          DataCell(
+                            GestureDetector(
+                              onTap: canAdd ? () => _showEditTeamDialog(context, lb) : null,
+                              child: Text(lb.matchesPlayed.toString()),
+                            ),
+                          ),
+                          DataCell(
+                            GestureDetector(
+                              onTap: canAdd ? () => _showEditTeamDialog(context, lb) : null,
+                              child: Text(lb.wins.toString()),
+                            ),
+                          ),
+                          DataCell(Text(lb.draws.toString())),
+                          DataCell(Text(lb.losses.toString())),
+                          DataCell(Text(lb.goalsFor.toString())),
+                          DataCell(Text(lb.goalsAgainst.toString())),
+                          DataCell(Text(lb.goalDifference.toString())),
+                          DataCell(
+                            Text(
+                              lb.points.toString(),
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -341,53 +378,6 @@ class _LeaderboardsPageState extends State<LeaderboardsPage> {
       ),
     );
   }
-  
-  void _showModifierDialog(BuildContext context, List<Leaderboard> leaderboards) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Modify Leaderboard'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              const Text('Select a team to modify:'),
-              const SizedBox(height: 16),
-              ...leaderboards.map((leaderboard) => 
-                ListTile(
-                  title: Text(leaderboard.teamName),
-                  subtitle: Text('Pts: ${leaderboard.points} | MP: ${leaderboard.matchesPlayed}'),
-                  trailing: const Icon(Icons.edit),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showEditTeamDialog(context, leaderboard);
-                  },
-                )
-              ).toList(),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    builder: (context) => AddLeaderboardDialog(tournamentId: widget.tournamentId),
-                  );
-                },
-                child: const Text('Add New Team'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class AddLeaderboardDialog extends StatefulWidget {
@@ -411,7 +401,7 @@ class _AddLeaderboardDialogState extends State<AddLeaderboardDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Add Team to Leaderboard'),
+      title: const Text('Add Team to Leaderboard (max 8)'),
       content: Form(
         key: _formKey,
         child: SingleChildScrollView(
