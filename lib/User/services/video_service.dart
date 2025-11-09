@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:io'; // For File and SocketException
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../config/api_config.dart';
