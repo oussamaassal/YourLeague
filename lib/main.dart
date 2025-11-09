@@ -16,16 +16,17 @@ import 'package:yourleague/User/features/moderation/presentation/cubits/moderati
 import 'package:yourleague/User/features/shop/data/firebase_shop_repo.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/shop_cubit.dart';
 import 'package:yourleague/User/features/shop/presentation/cubits/cart_cubit.dart';
-
 import 'package:yourleague/User/features/shop/data/stripe_payment_service.dart';
 import 'package:yourleague/User/themes/dark_mode.dart';
 import 'package:yourleague/User/themes/light_mode.dart';
 import 'package:yourleague/User/features/matches/data/firebase_matches_repo.dart';
 import 'package:yourleague/User/features/matches/presentation/cubits/matches_cubit.dart';
 import 'package:yourleague/User/features/settings/presentation/cubits/theme_cubit.dart';
-import 'package:yourleague/User/services/notification_service.dart';
 import 'firebase_options.dart';
 
+// 👇 Only import your existing notification service + fcm setup
+import 'package:yourleague/TeamsAndPlayers/notifications/fcm_setup.dart';
+import 'package:yourleague/TeamsAndPlayers/notifications/notification_service.dart';
 
 
 void main() async {
@@ -39,12 +40,13 @@ void main() async {
     await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     firebaseInitialized = true;
   } catch (e) {
-    print("ℹ️  Firebase not connected yet - showing welcome page");
+    print("ℹ️ Firebase not connected yet - showing welcome page");
     firebaseInitialized = false;
   }
 
-  // Initialize local notifications (timezone, channels)
-  await NotificationService.instance.init();
+  // 👇 Initialize local notifications (timezone, channels)
+  await NotificationService.init();
+
 
   runApp(MyApp(firebaseEnabled: firebaseInitialized));
 }
@@ -57,49 +59,32 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-      // Set up all state management (BLoC pattern)
       providers: [
         BlocProvider<ThemeCubit>(
           create: (context) => ThemeCubit(),
         ),
-
         BlocProvider<AuthCubit>(
           create: (context) =>
           AuthCubit(authRepo: FirebaseAuthRepo())..checkAuth(),
         ),
-
         BlocProvider<ModerationCubit>(
           create: (context) =>
               ModerationCubit(moderationRepo: FirebaseModerationRepo()),
         ),
-
         BlocProvider<ChatCubit>(
-            create: (context) => ChatCubit(chatRepo: FirebaseChatRepo())
+          create: (context) => ChatCubit(chatRepo: FirebaseChatRepo()),
         ),
-
-
-        // Handles shop operations (products, orders, transactions)
-
         BlocProvider<ShopCubit>(
           create: (context) => ShopCubit(shopRepo: FirebaseShopRepo()),
         ),
-
-  
-  
-        // Handles shopping cart
- 
         BlocProvider<CartCubit>(
           create: (context) => CartCubit(),
         ),
-
-  
-  
-        // Handles matches and tournaments
         BlocProvider<MatchesCubit>(
-          create: (context) => MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
+          create: (context) =>
+              MatchesCubit(matchesRepo: FirebaseMatchesRepo()),
         ),
       ],
-
       child: BlocBuilder<ThemeCubit, ThemeMode>(
         builder: (context, themeMode) {
           return MaterialApp(
@@ -112,17 +97,23 @@ class MyApp extends StatelessWidget {
           );
         },
       ),
-
     );
   }
-
-
 
   Widget _buildAppBody() {
     return BlocConsumer<AuthCubit, AuthState>(
       builder: (context, state) {
         if (state is Unauthenticated) return const AuthPage();
-        if (state is Authenticated) return const HomePage();
+
+        if (state is Authenticated) {
+          final uid = state.user.uid;
+
+          // 👇 Set up push notifications for the signed-in user
+          setupFCM(uid);
+
+          return const HomePage();
+        }
+
         return const LoadingScreen();
       },
       listener: (context, state) {
@@ -130,7 +121,6 @@ class MyApp extends StatelessWidget {
           ScaffoldMessenger.of(context)
               .showSnackBar(SnackBar(content: Text(state.message)));
         }
-
       },
     );
   }

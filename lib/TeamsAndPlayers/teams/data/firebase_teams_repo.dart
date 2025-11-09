@@ -1,16 +1,16 @@
-// lib/User/features/teams/data/firebase_teams_repo.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../domain/entities.dart';
 import '../domain/repos/teams_repo.dart';
+
 class FirebaseTeamsRepo implements TeamsRepo {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   CollectionReference<Map<String, dynamic>> get _teams => _db.collection('teams');
 
-  // Add this helper near the top of the class:
+  // Helper to display usernames nicely
   String _displayNameFromId(String userId) {
     return userId.contains('@') ? userId.split('@').first : userId;
-    // If in the future userId is a UID (no @), we just show it as-is or you can map UID->email.
   }
+
   Team _toTeam(DocumentSnapshot<Map<String, dynamic>> d) {
     final m = d.data()!;
     return Team(
@@ -22,7 +22,8 @@ class FirebaseTeamsRepo implements TeamsRepo {
       createdAt: (m['createdAt'] as Timestamp).toDate(),
     );
   }
-// Toggle visibility (owner only – enforce in UI)
+
+  // Toggle team visibility (owner only)
   Future<void> setTeamVisibility({
     required String teamId,
     required bool isPublic,
@@ -30,9 +31,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     return _teams.doc(teamId).update({'isPublic': isPublic});
   }
 
-// Join behavior used by QR or other “quick-join” entry points
-// If public → immediately add as member
-// If private → file a join request
+  // Join via QR or quick join
   Future<void> joinViaQuickPath({
     required String teamId,
     required String userId,
@@ -41,31 +40,56 @@ class FirebaseTeamsRepo implements TeamsRepo {
     if (!teamSnap.exists) return;
 
     final isPublic = (teamSnap.data()?['isPublic'] ?? true) as bool;
+    final teamName = teamSnap.data()?['name'] ?? 'a team';
+
     if (isPublic) {
-      // check if already member
-      final mems = await _teams.doc(teamId).collection('members')
-          .where('userId', isEqualTo: userId).limit(1).get();
+      // If team is public, directly add as member
+      final mems = await _teams
+          .doc(teamId)
+          .collection('members')
+          .where('userId', isEqualTo: userId)
+          .limit(1)
+          .get();
       if (mems.docs.isEmpty) {
         await _teams.doc(teamId).collection('members').add({
           'userId': userId,
           'role': 'player',
           'createdAt': FieldValue.serverTimestamp(),
         });
+
+        // In-app notification for player
+        await _db.collection('users').doc(userId).collection('notifications').add({
+          'type': 'joined_team',
+          'title': 'Joined Team',
+          'body': 'You joined $teamName successfully!',
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       }
     } else {
-      // private → create/overwrite pending request
+      // If team is private, create join request
       await _teams.doc(teamId).collection('join_requests').doc(userId).set({
         'userId': userId,
         'message': '',
         'status': 'pending',
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Notify the owner
+      final ownerId = teamSnap.data()?['ownerUid'];
+      if (ownerId != null && ownerId.isNotEmpty) {
+        await _db.collection('users').doc(ownerId).collection('notifications').add({
+          'type': 'join_request',
+          'title': 'New Join Request',
+          'body': 'A player requested to join $teamName.',
+          'read': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
     }
   }
 
-  // ───────────────── Teams for current user (owner OR member) ─────────────────
-  // We assume when creating a team we also add the owner to /members with role "owner".
-  // That lets a single collectionGroup('members') query cover both owner & member cases.
+  // Watch all teams for a specific user (owner or member)
   @override
   Stream<List<Team>> watchTeamsForUser(String uid) {
     return _db
@@ -75,21 +99,25 @@ class FirebaseTeamsRepo implements TeamsRepo {
         .asyncMap((memberSnaps) async {
       final seen = <String>{};
       final teams = <Team>[];
+
       for (final m in memberSnaps.docs) {
         final parentTeamRef = m.reference.parent.parent; // /teams/{teamId}
         if (parentTeamRef == null) continue;
-        if (!seen.add(parentTeamRef.id)) continue; // de-dupe
-        final tSnap = await (parentTeamRef as DocumentReference<Map<String, dynamic>>).get();
+        if (!seen.add(parentTeamRef.id)) continue;
+
+        final tSnap =
+        await (parentTeamRef as DocumentReference<Map<String, dynamic>>).get();
         if (tSnap.exists && tSnap.data() != null) {
           teams.add(_toTeam(tSnap));
         }
       }
+
       teams.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       return teams;
     });
   }
 
-  // ───────────────── Browse by category (public teams) ─────────────────
+  // Browse all public teams (by category)
   @override
   Stream<List<Team>> browseTeamsByCategory(TeamCategory cat) {
     return _teams
@@ -100,6 +128,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
         .map((s) => s.docs.map(_toTeam).toList());
   }
 
+  // Create a new team
   @override
   Future<Team> createTeam({
     required String ownerUid,
@@ -133,6 +162,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     );
   }
 
+  // Delete a team and all its data
   @override
   Future<void> deleteTeam(String teamId) async {
     final teamRef = _teams.doc(teamId);
@@ -155,7 +185,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     await teamRef.delete();
   }
 
-  // ───────────────── Members ─────────────────
+  // Watch team members
   @override
   Stream<List<Member>> watchMembers(String teamId) {
     return _teams
@@ -167,16 +197,16 @@ class FirebaseTeamsRepo implements TeamsRepo {
       final m = d.data();
       final rawId = (m['userId'] ?? '') as String;
       final display = _displayNameFromId(rawId);
-
       return Member(
         id: d.id,
-        userId: display, // <-- show only the part before '@'
+        userId: display,
         role: memberRoleFromString((m['role'] ?? 'player') as String),
         createdAt: (m['createdAt'] as Timestamp).toDate(),
       );
     }).toList());
   }
 
+  // Add a new member manually
   @override
   Future<Member> addMember({
     required String teamId,
@@ -192,6 +222,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     return Member(id: doc.id, userId: userId, role: role, createdAt: now);
   }
 
+  // Update member role
   @override
   Future<void> updateMemberRole({
     required String teamId,
@@ -205,6 +236,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
         .update({'role': memberRoleToString(role)});
   }
 
+  // Remove a member
   @override
   Future<void> removeMember({
     required String teamId,
@@ -217,7 +249,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     if (statSnap.exists) await statDoc.delete();
   }
 
-  // ───────────────── Player stats ─────────────────
+  // Watch player stats
   @override
   Stream<PlayerStats?> watchPlayerStats({
     required String teamId,
@@ -238,6 +270,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     });
   }
 
+  // Update or insert player stats
   @override
   Future<void> upsertPlayerStats({
     required String teamId,
@@ -257,7 +290,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     }, SetOptions(merge: true));
   }
 
-  // ───────────────── Join requests ─────────────────
+  // Create a join request (player side)
   @override
   Future<void> requestJoin({
     required String teamId,
@@ -273,6 +306,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
     });
   }
 
+  // Watch all pending join requests (owner view)
   @override
   Stream<List<String>> watchPendingRequestsUserIds(String teamId) {
     return _teams
@@ -283,6 +317,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
         .map((s) => s.docs.map((d) => (d.data()['userId'] ?? '') as String).toList());
   }
 
+  // Watch all public teams (optionally filtered by category)
   @override
   Stream<List<Team>> watchPublicTeams({TeamCategory? category}) {
     Query<Map<String, dynamic>> q = _teams.where('isPublic', isEqualTo: true);
@@ -295,7 +330,7 @@ class FirebaseTeamsRepo implements TeamsRepo {
         .map((s) => s.docs.map(_toTeam).toList());
   }
 
-// 3.b) OWNER: accept/decline request atomically (replace your existing method with this)
+  // Respond to join request (owner action)
   @override
   Future<void> respondToJoinRequest({
     required String teamId,
@@ -306,10 +341,12 @@ class FirebaseTeamsRepo implements TeamsRepo {
     final teamRef = _teams.doc(teamId);
     final reqRef = teamRef.collection('join_requests').doc(userId);
     final membersRef = teamRef.collection('members');
+    final teamSnap = await teamRef.get();
+    final teamName = teamSnap.data()?['name'] ?? 'a team';
 
     await _db.runTransaction((tx) async {
       final reqSnap = await tx.get(reqRef);
-      if (!reqSnap.exists) return; // already handled
+      if (!reqSnap.exists) return;
 
       if (accept) {
         tx.set(membersRef.doc(), {
@@ -318,10 +355,17 @@ class FirebaseTeamsRepo implements TeamsRepo {
           'createdAt': FieldValue.serverTimestamp(),
         });
       }
-
-      // Always remove the request (your UX: accepted -> in "My Teams"; declined -> can apply again)
       tx.delete(reqRef);
     });
-  }
 
+    await _db.collection('users').doc(userId).collection('notifications').add({
+      'type': accept ? 'accepted' : 'declined',
+      'title': accept ? 'Request Accepted' : 'Request Declined',
+      'body': accept
+          ? 'You have been accepted to join $teamName!'
+          : 'Your join request for $teamName was declined.',
+      'read': false,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
 }
