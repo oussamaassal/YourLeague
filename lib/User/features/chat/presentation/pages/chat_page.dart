@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:yourleague/User/features/auth/presentation/components/my_textfield.dart';
@@ -59,7 +58,7 @@ class _ChatPageState extends State<ChatPage> {
         message: messageText,
       );
 
-      // After sending, refetch the messages to get the updated list
+      // After sending, refetch the messages to ensure the cubit emits the stream (optional)
       _fetchMessages();
     }
   }
@@ -93,40 +92,46 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildMessageList() {
     return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
-        if (state is! MessagesLoaded) {
-          if (state is ChatError) {
-            return Center(child: Text('Error: ${state.message}'));
-          }
-          return const Center(child: CircularProgressIndicator());
+        if (state is ChatError) {
+          return Center(child: Text('Error: ${state.message}'));
         }
 
-        return FutureBuilder<QuerySnapshot>(
-          future: state.messages,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        if (state is MessagesLoaded) {
+          final messagesStream = state.messages;
 
-            if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
-            }
+          return StreamBuilder<QuerySnapshot>(
+            stream: messagesStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            final docs = snapshot.data?.docs ?? [];
-            if (docs.isEmpty) {
-              return const Center(child: Text('Say hi!'));
-            }
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
 
-            // --- FIX 3: Call scrollToBottom after the list is built ---
-            _scrollToBottom();
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(child: Text('Say hi!'));
+              }
 
-            return ListView(
-              // --- FIX 4: Attach the scroll controller ---
-              controller: _scrollController,
-              children: docs.map((document) => _buildMessageItem(document)).toList(),
-            );
-          },
-        );
+              // Scroll to bottom after new data is built
+              _scrollToBottom();
+
+              return ListView.builder(
+                controller: _scrollController,
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final document = docs[index];
+                  return _buildMessageItem(document);
+                },
+              );
+            },
+          );
+        }
+
+        return const Center(child: CircularProgressIndicator());
       },
     );
   }
@@ -148,10 +153,10 @@ class _ChatPageState extends State<ChatPage> {
           crossAxisAlignment:
           isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(data['senderEmail']),
+            Text(data['senderEmail'] ?? ''),
             const SizedBox(height: 5),
             ChatBubble(
-              message: data['message'],
+              message: data['message'] ?? '',
               bubbleColor: isCurrentUser ? Colors.blue : Colors.green,
             ),
           ],
