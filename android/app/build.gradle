@@ -1,0 +1,47 @@
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    // Flutter Gradle Plugin must be applied after Android and Kotlin plugins
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
+android {
+    namespace "com.freeplay.yourleague.yourleague"
+    compileSdk flutter.compileSdkVersion
+    ndkVersion flutter.ndkVersion
+
+    // ✅ Java 11 + Desugaring enabled
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+        coreLibraryDesugaringEnabled true
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+
+    defaultConfig {
+        applicationId "com.freeplay.yourleague.yourleague"
+        minSdk 21  // Stripe requires minimum API 21
+        targetSdk flutter.targetSdkVersion
+        versionCode flutter.versionCode
+        versionName flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.getByName("debug")
+        }
+    }
+}
+
+flutter {
+    source "../.."
+}
+
+// ✅ Add this section
+dependencies {
+    // Required by flutter_local_notifications
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+}

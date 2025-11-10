@@ -1,84 +1,178 @@
 import 'dart:convert';
+import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:http/http.dart' as http;
 import '../../../../config/api_config.dart';
+import '../../../../config/stripe_config.dart';
 
 class StripePaymentService {
   static String get _backendUrl => ApiConfig.baseUrl;
 
-  // Initialize Stripe with your publishable key
+  /// Initialize Stripe (called in main before runApp)
   static Future<void> initialize() async {
-    Stripe.publishableKey = 'pk_test_51SP3W4Kej0L6gzL0sf0Xl7eLJNcO4iyvBOIJus373rsEgf2CMhBuiUQjYV6GJBClFvAk49Q23YwRf0LdbpL4rOJQ00l5m3SDOr';
+    Stripe.publishableKey = StripeConfig.publishableKey; // centralized
+    // Apple Pay merchantIdentifier used only on iOS; safe to set anyway
+    Stripe.merchantIdentifier = StripeConfig.merchantIdentifier;
+    // Set return URL for deep linking back to app
+    Stripe.urlScheme = 'yourleague';
     await Stripe.instance.applySettings();
   }
 
-  // Create payment intent on the server
+  /// Quick health check so we fail fast with a friendly message instead of crashing.
+  static Future<void> _ensureBackendReachable() async {
+    final uri = Uri.parse('$_backendUrl/health');
+    try {
+      final resp = await http
+          .get(uri)
+          .timeout(const Duration(seconds: 4));
+      if (resp.statusCode >= 400) {
+        throw Exception('Health endpoint returned ${resp.statusCode}');
+      }
+    } on TimeoutException {
+      throw Exception('Backend timeout. Ensure server at $_backendUrl is running or switch to ngrok.');
+    } on SocketException {
+      throw Exception('Cannot reach $_backendUrl. Device and server must be on same WiFi (current IP ${ApiConfig.localIP}).');
+    }
+  }
+
+  /// Create payment intent on the Node backend.
   static Future<Map<String, dynamic>> createPaymentIntent(
       String amount, String currency) async {
     try {
       print('🔵 Attempting to connect to: $_backendUrl/create-payment-intent');
-      print('🔵 Amount: $amount, Currency: $currency');
-      
-      final response = await http.post(
-        Uri.parse('$_backendUrl/create-payment-intent'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'amount': amount,
-          'currency': currency,
-        }),
-      );
+      print('🔵 Amount (minor units): $amount, Currency: $currency');
+
+      final response = await http
+          .post(
+            Uri.parse('$_backendUrl/create-payment-intent'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({'amount': amount, 'currency': currency}),
+          )
+          .timeout(const Duration(seconds: 10));
 
       print('🔵 Response status: ${response.statusCode}');
       print('🔵 Response body: ${response.body}');
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return jsonDecode(response.body) as Map<String, dynamic>;
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        if (!decoded.containsKey('clientSecret')) {
+          throw Exception('Malformed response: missing clientSecret');
+        }
+        return decoded;
       }
-
-      throw Exception('Failed to create payment intent: ${response.statusCode} ${response.body}');
+      throw Exception('Failed (${response.statusCode}): ${response.body}');
+    } on TimeoutException {
+      throw Exception('Request to backend timed out.');
+    } on SocketException {
+      throw Exception('Network error (no internet or backend unreachable).');
     } catch (e) {
       print('🔴 Error creating payment intent: $e');
-      throw Exception('Failed to create payment intent: $e');
+      rethrow; // propagate for UI handling
     }
   }
 
-  // Process payment with Stripe PaymentSheet
+  /// Process payment with Stripe PaymentSheet. Returns true if successful.
   static Future<bool> processPayment(
       BuildContext context, String amount, String currency) async {
     try {
-      // Create payment intent via your backend
-      final paymentIntent = await createPaymentIntent(amount, currency);
+      print('🟢 Starting payment process...');
+      
+      // 1. Ensure backend reachable
+      await _ensureBackendReachable();
+      print('🟢 Backend is reachable');
 
-      // Initialize payment sheet
+      // 2. Create payment intent via backend
+      Map<String, dynamic> paymentIntent;
+      try {
+        paymentIntent = await createPaymentIntent(amount, currency);
+      } catch (e) {
+        // Surface clearer message & prevent presentPaymentSheet crash
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('❌ Could not create payment intent: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return false;
+      }
+      print('🟢 Payment intent created: ${paymentIntent['clientSecret']?.substring(0, 20)}...');
+
+      // 3. Init payment sheet with proper configuration
+      print('🟢 Initializing payment sheet...');
       await Stripe.instance.initPaymentSheet(
         paymentSheetParameters: SetupPaymentSheetParameters(
           paymentIntentClientSecret: paymentIntent['clientSecret'] as String,
           merchantDisplayName: 'YourLeague Shop',
           style: ThemeMode.system,
+          returnURL: 'yourleague://stripe-redirect',
+          allowsDelayedPaymentMethods: true,
+          // These settings help keep the payment in-app
+          googlePay: PaymentSheetGooglePay(
+            merchantCountryCode: 'US',
+            currencyCode: currency.toUpperCase(),
+            testEnv: true,
+          ),
         ),
       );
+      print('🟢 Payment sheet initialized');
 
-      // Present payment sheet
+      // Small delay to ensure sheet is ready
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      // 4. Present payment sheet to user
+      print('🟢 Presenting payment sheet...');
       await Stripe.instance.presentPaymentSheet();
+      print('🟢 Payment sheet completed successfully');
 
-      // Payment successful
+      if (!context.mounted) return true;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Payment completed successfully!')),
+        const SnackBar(
+          content: Text('✅ Payment completed successfully!'),
+          backgroundColor: Colors.green,
+        ),
       );
       return true;
     } on StripeException catch (e) {
-      // Payment failed
+      print('🔴 Stripe Exception: ${e.error.code} - ${e.error.message}');
+      
+      // User cancelled the payment
+      if (e.error.code == FailureCode.Canceled) {
+        print('🟡 Payment cancelled by user');
+        if (!context.mounted) return false;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Payment cancelled'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return false;
+      }
+      
+      if (!context.mounted) return false;
+      final msg = e.error.message ?? e.error.localizedMessage ?? 'Payment failed';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Payment failed: ${e.error.localizedMessage}')),
+        SnackBar(
+          content: Text('❌ Stripe: $msg'),
+          backgroundColor: Colors.red,
+        ),
       );
       return false;
     } catch (e) {
-      // Other errors
+      print('🔴 Payment error: $e');
+      // Common crash scenario: Sheet not initialized / network lost mid-process
+      final hint = e.toString().contains('initPaymentSheet')
+          ? 'Hint: Ensure server reachable & publishable key set before calling processPayment.'
+          : '';
+      if (!context.mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        SnackBar(
+          content: Text('❌ Payment error: $e $hint'),
+          backgroundColor: Colors.red,
+        ),
       );
       return false;
     }

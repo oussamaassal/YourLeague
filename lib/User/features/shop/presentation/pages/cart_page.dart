@@ -209,9 +209,22 @@ class CartPage extends StatelessWidget {
     }
 
     try {
+      // Show loading indicator
+      if (!context.mounted) return;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
     
       // Process payment with Stripe using PaymentSheet
       final totalAmount = (cartCubit.totalAmount * 100).toInt().toString(); // Convert to cents
+      
+      // Close loading dialog before showing payment sheet
+      if (context.mounted) Navigator.pop(context);
+      
       final paymentSuccess = await StripePaymentService.processPayment(
         context,
         totalAmount,
@@ -219,7 +232,7 @@ class CartPage extends StatelessWidget {
       );
 
       if (!paymentSuccess) {
-        // Payment failed
+        // Payment failed or was cancelled
         return;
       }
 
