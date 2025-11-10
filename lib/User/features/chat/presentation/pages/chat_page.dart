@@ -1,5 +1,4 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:yourleague/User/features/auth/presentation/components/my_textfield.dart';
@@ -10,10 +9,15 @@ import 'package:yourleague/User/features/chat/presentation/cubits/chat_states.da
 
 
 class ChatPage extends StatefulWidget {
+  // --- MODIFICATION: Add receiverUserName ---
+  final String receiverUserName;
   final String receiverUserEmail;
   final String receiverUserID;
+
   const ChatPage({
     super.key,
+    // --- MODIFICATION: Require receiverUserName ---
+    required this.receiverUserName,
     required this.receiverUserEmail,
     required this.receiverUserID,
   });
@@ -26,6 +30,9 @@ class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
   // --- FIX 1: Create a ScrollController ---
   final ScrollController _scrollController = ScrollController();
+
+  // Cache simple pour éviter de re-lire le même user plusieurs fois
+  final Map<String, String> _nameCache = {};
 
   @override
   void initState() {
@@ -43,6 +50,31 @@ class _ChatPageState extends State<ChatPage> {
     );
   }
 
+  Future<String> _getSenderDisplayName(String senderId, String fallbackEmail) async {
+    // Retourne depuis le cache si existant
+    if (_nameCache.containsKey(senderId)) {
+      return _nameCache[senderId]!;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
+      if (doc.exists) {
+        final data = doc.data();
+        final name = data != null && data['name'] != null && (data['name'] as String).isNotEmpty
+            ? data['name'] as String
+            : fallbackEmail;
+        _nameCache[senderId] = name;
+        return name;
+      }
+    } catch (_) {
+      // ignore and fallback
+    }
+
+    // fallback
+    _nameCache[senderId] = fallbackEmail;
+    return fallbackEmail;
+  }
+
   void sendMessage() async {
     if (_messageController.text.isNotEmpty) {
       final messageText = _messageController.text;
@@ -54,7 +86,7 @@ class _ChatPageState extends State<ChatPage> {
         message: messageText,
       );
 
-      // After sending, refetch the messages to get the updated list
+      // After sending, refetch the messages to ensure the cubit emits the stream (optional)
       _fetchMessages();
     }
   }
@@ -73,7 +105,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.receiverUserEmail),
+        title: Text(widget.receiverUserName),
       ),
       body: Column(
         children: [
@@ -88,40 +120,46 @@ class _ChatPageState extends State<ChatPage> {
   Widget _buildMessageList() {
     return BlocBuilder<ChatCubit, ChatState>(
       builder: (context, state) {
-        if (state is! MessagesLoaded) {
-          if (state is ChatError) {
-            return Center(child: Text('Error: ${state.message}'));
-          }
-          return const Center(child: CircularProgressIndicator());
+        if (state is ChatError) {
+          return Center(child: Text('Error: ${state.message}'));
         }
 
-        return FutureBuilder<QuerySnapshot>(
-          future: state.messages,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting &&
-                !snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
+        if (state is MessagesLoaded) {
+          final messagesStream = state.messages;
 
-            if (snapshot.hasError) {
-              return Text('Error: ${snapshot.error}');
-            }
+          return StreamBuilder<QuerySnapshot>(
+            stream: messagesStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-            final docs = snapshot.data?.docs ?? [];
-            if (docs.isEmpty) {
-              return const Center(child: Text('Say hi!'));
-            }
+              if (snapshot.hasError) {
+                return Text('Error: ${snapshot.error}');
+              }
 
-            // --- FIX 3: Call scrollToBottom after the list is built ---
-            _scrollToBottom();
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return const Center(child: Text('Say hi!'));
+              }
 
-            return ListView(
-              // --- FIX 4: Attach the scroll controller ---
-              controller: _scrollController,
-              children: docs.map((document) => _buildMessageItem(document)).toList(),
-            );
-          },
-        );
+              // Scroll to bottom after new data is built
+              _scrollToBottom();
+
+              return ListView.builder(
+                controller: _scrollController,
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final document = docs[index];
+                  return _buildMessageItem(document);
+                },
+              );
+            },
+          );
+        }
+
+        return const Center(child: CircularProgressIndicator());
       },
     );
   }
@@ -135,6 +173,10 @@ class _ChatPageState extends State<ChatPage> {
 
     var alignment = isCurrentUser ? Alignment.centerRight : Alignment.centerLeft;
 
+    // Récupérer l'ID et l'email pour fallback
+    final senderId = data['senderId'] as String? ?? '';
+    final senderEmail = data['senderEmail'] as String? ?? '';
+
     return Container(
       alignment: alignment,
       child: Padding(
@@ -143,10 +185,17 @@ class _ChatPageState extends State<ChatPage> {
           crossAxisAlignment:
           isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(data['senderEmail']),
+            // Affiche le nom si disponible, sinon l'email (avec cache pour limiter les lectures Firestore)
+            FutureBuilder<String>(
+              future: _getSenderDisplayName(senderId, senderEmail),
+              builder: (context, snap) {
+                final display = snap.data ?? senderEmail;
+                return Text(display, style: const TextStyle(fontWeight: FontWeight.w600));
+              },
+            ),
             const SizedBox(height: 5),
             ChatBubble(
-              message: data['message'],
+              message: data['message'] ?? '',
               bubbleColor: isCurrentUser ? Colors.blue : Colors.green,
             ),
           ],

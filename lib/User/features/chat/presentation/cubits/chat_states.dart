@@ -12,7 +12,7 @@ class ChatLoading extends ChatState {}
 
 // State when messages are successfully loaded. It holds a stream of messages.
 class MessagesLoaded extends ChatState {
-  final Future<QuerySnapshot> messages;
+  final Stream<QuerySnapshot> messages;
 
   MessagesLoaded(this.messages);
 }

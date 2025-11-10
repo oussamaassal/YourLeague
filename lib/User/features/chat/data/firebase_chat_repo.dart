@@ -68,4 +68,19 @@ class FirebaseChatRepo implements ChatRepo {
         .get();
   }
 
+  // NOUVELLE METHODE: Stream temps réel des messages
+  @override
+  Stream<QuerySnapshot> getMessagesStream(String userId, String otherUserId) {
+    List<String> ids = [userId, otherUserId];
+    ids.sort();
+    String chatRoomId = ids.join("_");
+
+    return _firestore
+        .collection('chat_rooms')
+        .doc(chatRoomId)
+        .collection('messages')
+        .orderBy('timestamp', descending: false)
+        .snapshots();
+  }
+
 }

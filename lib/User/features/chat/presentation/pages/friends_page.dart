@@ -1,9 +1,11 @@
+// In D:/Flutter Projects/yourleague/lib/User/features/chat/presentation/pages/friends_page.dart
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:yourleague/User/features/auth/presentation/cubits/auth_cubit.dart';
 import 'package:yourleague/User/features/chat/presentation/pages/chat_page.dart';
+import 'package:yourleague/User/features/chat/presentation/pages/find_friends_page.dart';
 
 
 class FriendsPage extends StatefulWidget {
@@ -14,68 +16,120 @@ class FriendsPage extends StatefulWidget {
 }
 
 class _FriendsPageState extends State<FriendsPage> {
-  // instance of auth
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Friends List'),
+        title: Text('Friends'), // Updated title
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.person_add_alt_1),
+            tooltip: 'Find Friends',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const FindFriendsPage()),
+              );
+            },
+          ),
+        ],
       ),
-      body: _buildUserList(),
-
+      body: _buildFriendsList(), // Renamed for clarity
     );
   }
 
-  // build a list of users except for the current loged in user
-  Widget _buildUserList() {
+  // Build a list of the current user's friends
+  Widget _buildFriendsList() {
+    // Get the current user's UID to fetch their friends list
+    final currentUserUid = context.watch<AuthCubit>().currentUser?.uid;
+
+    // If there is no logged-in user, show a message.
+    if (currentUserUid == null) {
+      return const Center(child: Text('Please log in to see your friends.'));
+    }
+
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
-      builder: (context, snapshot){
+      // Listen to the 'friends' subcollection of the current user
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserUid)
+          .collection('friends')
+          .snapshots(),
+      builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Text('error');
+          return const Center(child: Text('Error loading friends.'));
         }
 
-        if(snapshot.connectionState == ConnectionState.waiting){
-          return const Text('Loading..');
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
         }
 
+        if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
+          return const Center(
+            child: Text("You haven't added any friends yet. Tap the '+' icon to find friends!"),
+          );
+        }
+
+        // Build the list using the documents from the 'friends' subcollection
         return ListView(
           children: snapshot.data!.docs
-              .map<Widget>((doc) => _buildUserListItem(doc)).toList(),
+              .map<Widget>((doc) => _buildFriendListItem(doc))
+              .toList(),
         );
       },
     );
   }
 
-  // build indivisual user list items
-  // build individual user list items
-  Widget _buildUserListItem(DocumentSnapshot document) {
+  // Build an individual list item for a friend
+  Widget _buildFriendListItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data()! as Map<String, dynamic>;
 
-    final authCubit = context.read<AuthCubit>();
+    final String friendID = data['uid'];
+    // Keep email as a fallback for the ChatPage navigation
+    final String friendEmail = data['email'] ?? 'No Email';
 
-    // display all users except current user
-    if (authCubit.currentUser!.email != data['email']) {
-      return ListTile(
-        // The fix is here: Wrap the string in a Text widget
-        title: Text(data['email']),
-        onTap: () {
-          // pass the clicked user's UID to the chat page
-          Navigator.push(
+    // Use a FutureBuilder to fetch the friend's latest data
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('users').doc(friendID).get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          // You can return a placeholder or an empty container while loading
+          return const SizedBox.shrink(); // A non-visible widget
+        }
+
+        if (!snapshot.hasData || !snapshot.data!.exists) {
+          // If the user document was deleted, show nothing
+          return const SizedBox.shrink();
+        }
+
+        // --- MODIFIED DISPLAY LOGIC ---
+        Map<String, dynamic> friendData = snapshot.data!.data() as Map<String, dynamic>;
+
+        // If the friend has no name, don't display them in the list.
+        if (friendData['name'] == null) {
+          return const SizedBox.shrink(); // Return an empty widget
+        }
+
+        final String displayName = friendData['name'];
+
+        return ListTile(
+          title: Text(displayName), // Display only the name
+          onTap: () {
+            // Navigate to the chat page with this friend
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (context) => ChatPage(
-                  receiverUserEmail: data['email'],
-                  receiverUserID: data['uid'],
+                  receiverUserName: displayName,
+                  receiverUserEmail: friendEmail, // Pass email to chat page
+                  receiverUserID: friendID,
                 ),
-              ));
-        },
-      );
-    } else {
-      // return empty container for the current user
-      return Container();
-    }
+              ),
+            );
+          },
+        );
+      },
+    );
   }
-
 }

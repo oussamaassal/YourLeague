@@ -91,23 +91,45 @@ class FirebaseAuthRepo implements AuthRepo {
 
   // DELETE ACCOUNT
   @override
+  @override
   Future<void> deleteAccount() async {
     try {
-      // get current user
+      // Get current user
       final user = firebaseAuth.currentUser;
 
-      // check if there is a logged in user
-      if (user == null) throw Exception('No user logged in..');
+      // Check if there is a logged in user
+      if (user == null) {
+        throw Exception('No user is currently logged in.');
+      }
 
-      // delete account
+      final uid = user.uid;
+
+      // --- NEW: Delete user's document from Firestore ---
+      // This will also delete all subcollections, including 'friends'.
+      await firestore.collection('users').doc(uid).delete();
+
+      // --- Delete the Firebase Auth user ---
+      // This must be done after other cleanup as it requires re-authentication.
       await user.delete();
 
-      // logout
+      // --- Final logout ---
       await logout();
+
+    } on FirebaseAuthException catch (e) {
+      // Handle specific Firebase Auth errors, like 'requires-recent-login'
+      if (e.code == 'requires-recent-login') {
+        throw Exception(
+            'This is a sensitive operation and requires a recent sign-in. Please log out and log back in to delete your account.'
+        );
+      }
+      // Handle other potential auth errors
+      throw Exception('Failed to delete account: ${e.message}');
     } catch (e) {
-      throw Exception('Failed to delete account: $e');
+      // Handle Firestore errors or other general issues
+      throw Exception('An error occurred while deleting your account: $e');
     }
   }
+
 
   // GET CURRENT USER
   @override
@@ -182,31 +204,42 @@ class FirebaseAuthRepo implements AuthRepo {
   @override
   Future<AppUser?> signInWithGoogle() async {
     try {
-      // begin the interactive sign-in process
+      // 1. Begin the interactive sign-in process
       final GoogleSignInAccount? gUser = await GoogleSignIn().signIn();
 
-      // user cancelled sign-in
+      // 2. User cancelled the sign-in
       if (gUser == null) return null;
 
-      // obtain auth details from request
+      // 3. Obtain auth details from the request
       final GoogleSignInAuthentication gAuth = await gUser.authentication;
 
-      // create a credential for the user
+      // 4. Create a new Firebase credential
       final credential = GoogleAuthProvider.credential(
         accessToken: gAuth.accessToken,
         idToken: gAuth.idToken,
       );
 
-      // sign in with these credentials
+      // 5. Sign in to Firebase with the credential
       UserCredential userCredential =
-          await firebaseAuth.signInWithCredential(credential);
+      await firebaseAuth.signInWithCredential(credential);
 
-      // firebase user
       final firebaseUser = userCredential.user;
 
-      // user cancelled sign-in process
       if (firebaseUser == null) return null;
 
+      // 6. *** NEW: Check if this is a new user ***
+      // If the user is new, 'additionalUserInfo.isNewUser' will be true.
+      if (userCredential.additionalUserInfo?.isNewUser ?? false) {
+        // Create a document for the new user in Firestore
+        await firestore.collection('users').doc(firebaseUser.uid).set({
+          'uid': firebaseUser.uid,
+          'email': firebaseUser.email,
+          'name': firebaseUser.displayName, // Get name from Google profile
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      // 7. Create and return the AppUser object
       AppUser appUser = AppUser(
         uid: firebaseUser.uid,
         email: firebaseUser.email ?? '',
@@ -214,8 +247,10 @@ class FirebaseAuthRepo implements AuthRepo {
 
       return appUser;
     } catch (e) {
-      print(e);
-      return null;
+      print("Error signing in with Google: $e");
+      // Optionally, provide a more user-friendly error
+      throw Exception('Failed to sign in with Google: $e');
     }
   }
+
 }
