@@ -34,13 +34,42 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
   // You need to implement how a friend request is sent or stored.
   // This could involve writing to a 'friend_requests' collection in Firestore
   // or updating a 'friends' subcollection in the user's document.
-  void _addFriend(String friendUid, String friendEmail) {
-    print('Sending friend request to: $friendEmail (UID: $friendUid)');
-    // Example: Show a confirmation message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Friend request sent to $friendEmail')),
-    );
-    // TODO: Implement your actual backend logic for adding a friend here.
+  // --- Add Friend Logic ---
+  void _addFriend(String friendUid, String friendEmail) async {
+    // Get the current user's UID from AuthCubit
+    final currentUserUid = context.read<AuthCubit>().currentUser!.uid;
+
+    // Don't allow users to add themselves
+    if (currentUserUid == friendUid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("You cannot add yourself as a friend.")),
+      );
+      return;
+    }
+
+    try {
+      // Add the friend to the current user's 'friends' subcollection
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserUid)
+          .collection('friends')
+          .doc(friendUid) // Use the friend's UID as the document ID
+          .set({
+        'email': friendEmail,
+        'uid': friendUid,
+        'addedOn': Timestamp.now(), // Optional: store when the friend was added
+      });
+
+      // Show a confirmation message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$friendEmail has been added to your friends!')),
+      );
+    } catch (e) {
+      // Handle potential errors, e.g., network issues or permissions
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add friend: $e')),
+      );
+    }
   }
 
   @override
@@ -75,61 +104,98 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
 
   // Build a list of users, excluding the current logged-in user
   Widget _buildUserList() {
-    return StreamBuilder<QuerySnapshot>(
-      // Listen to the 'users' collection in Firestore
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(child: Text('Something went wrong'));
-        }
+    final currentUser = context.read<AuthCubit>().currentUser;
+    if (currentUser == null) {
+      return const Center(child: Text("You must be logged in to find friends."));
+    }
+    final currentUserUid = currentUser.uid;
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+    // 1. First, get the list of current friends' UIDs
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUserUid)
+          .collection('friends')
+          .snapshots(),
+      builder: (context, friendsSnapshot) {
+        if (friendsSnapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
-
-        // Get the current user's email to exclude them from the list
-        final currentUserEmail = context.read<AuthCubit>().currentUser!.email;
-
-        // Filter the list of users based on the search query
-        final filteredDocs = snapshot.data!.docs.where((doc) {
-          Map<String, dynamic> data = doc.data()! as Map<String, dynamic>;
-          final userEmail = data['email'].toString().toLowerCase();
-          final searchQueryLower = _searchQuery.toLowerCase();
-
-          // Only show users who are NOT the current user and match the search query
-          return userEmail != currentUserEmail && userEmail.contains(searchQueryLower);
-        }).toList();
-
-        if (filteredDocs.isEmpty) {
-          return const Center(child: Text('No users found.'));
+        if (friendsSnapshot.hasError) {
+          return const Center(child: Text('Could not load friends list.'));
         }
 
-        return ListView.builder(
-          itemCount: filteredDocs.length,
-          itemBuilder: (context, index) => _buildUserListItem(filteredDocs[index]),
+        final friendUids = friendsSnapshot.data?.docs.map((doc) => doc.id).toSet() ?? {};
+
+        // 2. Then, build the list of all users, applying filters
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance.collection('users').snapshots(),
+          builder: (context, usersSnapshot) {
+            if (usersSnapshot.hasError) {
+              return const Center(child: Text('Something went wrong'));
+            }
+            if (usersSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            // --- MODIFIED FILTERING LOGIC ---
+            final filteredDocs = usersSnapshot.data!.docs.where((doc) {
+              Map<String, dynamic> data = doc.data()! as Map<String, dynamic>;
+              final userUid = doc.id;
+
+              // Filter out users without a name
+              if (data['name'] == null) {
+                return false;
+              }
+
+              // Exclude the current user and existing friends
+              if (userUid == currentUserUid || friendUids.contains(userUid)) {
+                return false;
+              }
+
+              // Apply the text search filter on the name
+              final userName = (data['name'] as String).toLowerCase();
+              final searchQueryLower = _searchQuery.toLowerCase();
+
+              return userName.contains(searchQueryLower);
+            }).toList();
+
+            if (filteredDocs.isEmpty) {
+              return Center(child: Text(_searchQuery.isEmpty ? 'No users found.' : 'No users match your search.'));
+            }
+
+            return ListView.builder(
+              itemCount: filteredDocs.length,
+              itemBuilder: (context, index) =>
+                  _buildUserListItem(filteredDocs[index]),
+            );
+          },
         );
       },
     );
   }
 
-  // Build an individual user list item with an "Add Friend" button
+// --- SIMPLIFIED to only show name ---
   Widget _buildUserListItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data()! as Map<String, dynamic>;
 
+    final String displayName = data['name']; // We already filtered out null names
+    final String friendUid = data['uid'];
+    final String friendEmail = data['email'];
+
     return ListTile(
-      title: Text(data['email']),
+      title: Text(displayName), // Display only the name
       trailing: ElevatedButton.icon(
         icon: const Icon(Icons.person_add, size: 18),
         label: const Text('Add'),
         style: ElevatedButton.styleFrom(
-          // Making the button less intrusive
           padding: const EdgeInsets.symmetric(horizontal: 12),
         ),
         onPressed: () {
-          // Call the add friend method when the button is pressed
-          _addFriend(data['uid'], data['email']);
+          _addFriend(friendUid, friendEmail);
         },
       ),
     );
   }
+
 }

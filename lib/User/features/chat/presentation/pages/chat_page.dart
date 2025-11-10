@@ -10,10 +10,15 @@ import 'package:yourleague/User/features/chat/presentation/cubits/chat_states.da
 
 
 class ChatPage extends StatefulWidget {
+  // --- MODIFICATION: Add receiverUserName ---
+  final String receiverUserName;
   final String receiverUserEmail;
   final String receiverUserID;
+
   const ChatPage({
     super.key,
+    // --- MODIFICATION: Require receiverUserName ---
+    required this.receiverUserName,
     required this.receiverUserEmail,
     required this.receiverUserID,
   });
@@ -73,7 +78,7 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.receiverUserEmail),
+        title: Text(widget.receiverUserName),
       ),
       body: Column(
         children: [
