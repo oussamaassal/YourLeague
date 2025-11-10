@@ -31,6 +31,9 @@ class _ChatPageState extends State<ChatPage> {
   // --- FIX 1: Create a ScrollController ---
   final ScrollController _scrollController = ScrollController();
 
+  // Cache simple pour éviter de re-lire le même user plusieurs fois
+  final Map<String, String> _nameCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +48,31 @@ class _ChatPageState extends State<ChatPage> {
       userId: authCubit.currentUser!.uid,
       otherUserId: widget.receiverUserID,
     );
+  }
+
+  Future<String> _getSenderDisplayName(String senderId, String fallbackEmail) async {
+    // Retourne depuis le cache si existant
+    if (_nameCache.containsKey(senderId)) {
+      return _nameCache[senderId]!;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(senderId).get();
+      if (doc.exists) {
+        final data = doc.data();
+        final name = data != null && data['name'] != null && (data['name'] as String).isNotEmpty
+            ? data['name'] as String
+            : fallbackEmail;
+        _nameCache[senderId] = name;
+        return name;
+      }
+    } catch (_) {
+      // ignore and fallback
+    }
+
+    // fallback
+    _nameCache[senderId] = fallbackEmail;
+    return fallbackEmail;
   }
 
   void sendMessage() async {
@@ -145,6 +173,10 @@ class _ChatPageState extends State<ChatPage> {
 
     var alignment = isCurrentUser ? Alignment.centerRight : Alignment.centerLeft;
 
+    // Récupérer l'ID et l'email pour fallback
+    final senderId = data['senderId'] as String? ?? '';
+    final senderEmail = data['senderEmail'] as String? ?? '';
+
     return Container(
       alignment: alignment,
       child: Padding(
@@ -153,7 +185,14 @@ class _ChatPageState extends State<ChatPage> {
           crossAxisAlignment:
           isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(data['senderEmail'] ?? ''),
+            // Affiche le nom si disponible, sinon l'email (avec cache pour limiter les lectures Firestore)
+            FutureBuilder<String>(
+              future: _getSenderDisplayName(senderId, senderEmail),
+              builder: (context, snap) {
+                final display = snap.data ?? senderEmail;
+                return Text(display, style: const TextStyle(fontWeight: FontWeight.w600));
+              },
+            ),
             const SizedBox(height: 5),
             ChatBubble(
               message: data['message'] ?? '',
