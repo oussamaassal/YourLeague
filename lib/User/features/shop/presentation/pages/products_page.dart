@@ -191,41 +191,57 @@ class _ProductsPageState extends State<ProductsPage> {
         }
       },
       builder: (context, state) {
+            // Show loading only if we don't have products yet
             if (state is ShopLoading) {
               return const Center(child: CircularProgressIndicator());
             }
 
+            // Handle both ProductsLoaded and other states (like ReviewsLoaded)
+            // Get products from ShopCubit's cached products
+            List<Product> products = [];
             if (state is ProductsLoaded) {
-              if (state.products.isEmpty) {
-                return const Center(child: Text('No products available'));
-              }
+              products = state.products;
+            } else {
+              // If we're in a different state (like ReviewsLoaded), reload products
+              // This happens when navigating back from product detail
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (context.mounted) {
+                  context.read<ShopCubit>().getAllProducts();
+                }
+              });
+              return const Center(child: CircularProgressIndicator());
+            }
 
-              final filteredAndSorted = _filterAndSortProducts(state.products);
+            if (products.isEmpty) {
+              return const Center(child: Text('No products available'));
+            }
 
-              if (filteredAndSorted.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.search_off, size: 64, color: Colors.grey),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No products found',
-                        style: Theme.of(context).textTheme.titleLarge,
+            final filteredAndSorted = _filterAndSortProducts(products);
+
+            if (filteredAndSorted.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.search_off, size: 64, color: Colors.grey),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No products found',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Try a different search term',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey,
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Try a different search term',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
+                    ),
+                  ],
+                ),
+              );
+            }
 
-              return ListView.builder(
+            return ListView.builder(
                 itemCount: filteredAndSorted.length,
                 itemBuilder: (context, index) {
                   final product = filteredAndSorted[index];
@@ -367,9 +383,6 @@ class _ProductsPageState extends State<ProductsPage> {
                   );
                 },
               );
-            }
-
-            return const Center(child: Text('Loading products...'));
           },
         );
   }

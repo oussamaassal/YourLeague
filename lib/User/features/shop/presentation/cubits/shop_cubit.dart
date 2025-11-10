@@ -19,7 +19,8 @@ class ShopCubit extends Cubit<ShopState> {
     
   final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
     
-    
+  // Cache last loaded products to prevent loading issues
+  List<Product>? _cachedProducts;
 
   ShopCubit({required this.shopRepo}) : super(ShopInitial());
 
@@ -81,6 +82,7 @@ class ShopCubit extends Cubit<ShopState> {
     try {
       emit(ShopLoading());
       final products = await shopRepo.getAllProducts();
+      _cachedProducts = products; // Cache the products
       emit(ProductsLoaded(products));
     } catch (e) {
       emit(ShopError('Failed to get products: $e'));
@@ -342,7 +344,10 @@ class ShopCubit extends Cubit<ShopState> {
 
   Future<void> getProductReviews(String productId) async {
     try {
-      emit(ShopLoading());
+      // Don't emit loading if we have cached products - just load reviews
+      if (_cachedProducts == null) {
+        emit(ShopLoading());
+      }
       final reviews = await shopRepo.getProductReviews(productId);
       emit(ReviewsLoaded(reviews));
     } catch (e) {
