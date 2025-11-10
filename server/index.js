@@ -11,6 +11,7 @@ const admin = require('firebase-admin');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const GOOGLE_TRANSLATE_KEY = process.env.GOOGLE_TRANSLATE_KEY || null;
 
 app.use(cors());
 app.use(bodyParser.json());
@@ -277,3 +278,61 @@ app.listen(PORT, () => {
   console.log(`📺 Video upload dir: ${uploadsDir}`);
   console.log('📢 Push endpoint: POST /matches/:matchId/push');
 });
+
+// =============================
+// Translation API (Free MyMemory)
+// =============================
+// POST /translate { q: string | string[], target: 'fr', source?: 'en' }
+// Uses MyMemory free API (no key needed, 1000 chars/day limit)
+app.post('/translate', async (req, res) => {
+  try {
+    const { q, target, source } = req.body || {};
+    if (!q || !target) {
+      return res.status(400).json({ error: 'Missing q or target' });
+    }
+
+    // MyMemory expects single text string
+    const textToTranslate = Array.isArray(q) ? q[0] : q;
+    
+    // Using free MyMemory API
+    const langpair = `${source || 'en'}|${target}`;
+    const encodedText = encodeURIComponent(textToTranslate);
+    const url = `https://api.mymemory.translated.net/get?q=${encodedText}&langpair=${langpair}`;
+
+    const resp = await fetch(url);
+    
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      console.error('MyMemory error:', resp.status, errorText);
+      return res.status(resp.status).json({ error: errorText });
+    }
+
+    const json = await resp.json();
+    
+    // Check for API errors
+    if (json.responseStatus !== 200) {
+      return res.status(400).json({ error: json.responseDetails || 'Translation failed' });
+    }
+    
+    // Normalize to same format as Google Translate
+    const tr = [{
+      translatedText: json.responseData?.translatedText || textToTranslate,
+      detectedSourceLanguage: source || 'en',
+    }];
+    
+    res.json({ translations: tr });
+  } catch (e) {
+    console.error('Translate error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+function htmlDecode(str) {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"');
+}

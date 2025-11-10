@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,9 @@ import 'package:yourleague/User/features/shop/domain/entities/product.dart';
 import 'package:yourleague/User/features/shop/domain/entities/review.dart';
 import 'package:yourleague/User/features/shop/domain/entities/cart_item.dart';
 import 'package:yourleague/User/features/shop/data/cloudinary_service.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:yourleague/config/api_config.dart';
 
 class ProductDetailPage extends StatefulWidget {
   final Product product;
@@ -29,6 +33,8 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   final CloudinaryService _cloudinaryService = CloudinaryService();
   File? _selectedImage;
   bool _isUploading = false;
+  String? _translatedDescription;
+  bool _translating = false;
 
   @override
   void initState() {
@@ -242,9 +248,20 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        widget.product.description,
+                        _translatedDescription ?? widget.product.description,
                         style: Theme.of(context).textTheme.bodyLarge,
                       ),
+                      if (_translatedDescription != null) ...[
+                        const SizedBox(height: 6),
+                        TextButton(
+                          onPressed: () => setState(() => _translatedDescription = null),
+                          child: const Text('Show original'),
+                        ),
+                      ],
+                      if (_translatedDescription == null) ...[
+                        const SizedBox(height: 6),
+                        _buildTranslateRow(),
+                      ],
                       const SizedBox(height: 8),
                       Text(
                         'Stock: ${widget.product.stockQuantity}',
@@ -474,6 +491,88 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
           );
         },
       ),
+    );
+  }
+
+  Widget _buildTranslateRow() {
+    return Row(
+      children: [
+        Expanded(
+          child: DropdownButtonFormField<String>(
+            value: _selectedLang,
+            decoration: const InputDecoration(
+              labelText: 'Translate to',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+            items: _languages.entries
+                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
+                .toList(),
+            onChanged: (val) => setState(() => _selectedLang = val ?? 'fr'),
+          ),
+        ),
+        const SizedBox(width: 8),
+        ElevatedButton.icon(
+          onPressed: _translating ? null : _translateDescription,
+          icon: _translating
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.translate),
+          label: const Text('Translate'),
+        ),
+      ],
+    );
+  }
+
+  String _selectedLang = 'fr';
+  final Map<String, String> _languages = {
+    'fr': 'French',
+    'es': 'Spanish',
+    'de': 'German',
+    'it': 'Italian',
+    'ar': 'Arabic',
+    'pt': 'Portuguese',
+  };
+
+  Future<void> _translateDescription() async {
+    setState(() => _translating = true);
+    try {
+      final uri = Uri.parse('${ApiConfig.baseUrl}/translate');
+      final resp = await http
+          .post(
+            uri,
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'q': widget.product.description,
+              'target': _selectedLang,
+            }),
+          )
+          .timeout(const Duration(seconds: 20));
+      if (resp.statusCode >= 200 && resp.statusCode < 300) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        final translations = data['translations'] as List<dynamic>?;
+        if (translations != null && translations.isNotEmpty) {
+          setState(() {
+            _translatedDescription = translations.first['translatedText'] as String?;
+          });
+        } else {
+          _showSnack('No translation returned');
+        }
+      } else {
+        _showSnack('Translation failed: ${resp.statusCode}');
+      }
+    } on TimeoutException {
+      _showSnack('Translation timed out. Is the server running at ${ApiConfig.baseUrl}?');
+    } catch (e) {
+      _showSnack('Translate error: $e');
+    } finally {
+      if (mounted) setState(() => _translating = false);
+    }
+  }
+
+  void _showSnack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg)),
     );
   }
 

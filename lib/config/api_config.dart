@@ -17,7 +17,8 @@ class ApiConfig {
 
   /// Your computer's local IP address (update for each developer).
   /// Each developer should change only this line OR use --dart-define.
-  static const String localIP = '192.168.1.8';
+  // Updated to new WiFi IP
+  static const String localIP = '172.20.10.2';
 
   /// ngrok tunnel URL. Replace placeholder after running: ngrok http 3000
   static const String ngrokUrl = 'https://YOUR-NGROK-URL.ngrok.io'; // ⚠️ UPDATE THIS WHEN USING NGROK
