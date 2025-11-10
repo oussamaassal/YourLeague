@@ -35,6 +35,11 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
   bool _isUploading = false;
   String? _translatedDescription;
   bool _translating = false;
+  
+  // Currency converter state
+  String _selectedCurrency = 'USD';
+  double? _convertedPrice;
+  bool _converting = false;
 
   @override
   void initState() {
@@ -214,12 +219,68 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '\$${widget.product.price.toStringAsFixed(2)}',
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: Theme.of(context).colorScheme.primary,
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '\$${widget.product.price.toStringAsFixed(2)} USD',
+                                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                              ),
+                              if (_convertedPrice != null && _selectedCurrency != 'USD') ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  '≈ ${_convertedPrice!.toStringAsFixed(2)} $_selectedCurrency',
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        color: Colors.green[700],
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
+                              ],
+                            ],
+                          ),
+                          // Currency dropdown
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: _converting
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : DropdownButton<String>(
+                                    value: _selectedCurrency,
+                                    underline: const SizedBox(),
+                                    isDense: true,
+                                    items: const [
+                                      DropdownMenuItem(value: 'USD', child: Text('🇺🇸 USD')),
+                                      DropdownMenuItem(value: 'EUR', child: Text('🇪🇺 EUR')),
+                                      DropdownMenuItem(value: 'GBP', child: Text('🇬🇧 GBP')),
+                                      DropdownMenuItem(value: 'JPY', child: Text('🇯🇵 JPY')),
+                                      DropdownMenuItem(value: 'CAD', child: Text('🇨🇦 CAD')),
+                                      DropdownMenuItem(value: 'AUD', child: Text('🇦🇺 AUD')),
+                                      DropdownMenuItem(value: 'CHF', child: Text('🇨🇭 CHF')),
+                                      DropdownMenuItem(value: 'CNY', child: Text('🇨🇳 CNY')),
+                                      DropdownMenuItem(value: 'INR', child: Text('🇮🇳 INR')),
+                                      DropdownMenuItem(value: 'MAD', child: Text('🇲🇦 MAD')),
+                                    ],
+                                    onChanged: (currency) {
+                                      if (currency != null && currency != 'USD') {
+                                        _convertPrice(currency);
+                                      } else if (currency == 'USD') {
+                                        setState(() {
+                                          _selectedCurrency = 'USD';
+                                          _convertedPrice = null;
+                                        });
+                                      }
+                                    },
+                                  ),
                           ),
                           if (!widget.product.isAvailable)
                             Container(
@@ -566,6 +627,36 @@ class _ProductDetailPageState extends State<ProductDetailPage> {
       _showSnack('Translate error: $e');
     } finally {
       if (mounted) setState(() => _translating = false);
+    }
+  }
+
+  Future<void> _convertPrice(String targetCurrency) async {
+    if (_converting) return;
+    setState(() {
+      _converting = true;
+      _selectedCurrency = targetCurrency;
+    });
+
+    try {
+      final baseUrl = ApiConfig.baseUrl;
+      final url = Uri.parse('$baseUrl/convert?amount=${widget.product.price}&from=USD&to=$targetCurrency');
+      
+      final resp = await http.get(url).timeout(const Duration(seconds: 10));
+      
+      if (resp.statusCode == 200) {
+        final json = jsonDecode(resp.body);
+        if (mounted) {
+          setState(() => _convertedPrice = json['converted']);
+        }
+      } else {
+        _showSnack('Conversion failed: ${resp.statusCode}');
+      }
+    } on TimeoutException {
+      _showSnack('Conversion timed out. Check server connection.');
+    } catch (e) {
+      _showSnack('Conversion error: $e');
+    } finally {
+      if (mounted) setState(() => _converting = false);
     }
   }
 

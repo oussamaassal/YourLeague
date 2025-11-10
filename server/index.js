@@ -327,6 +327,49 @@ app.post('/translate', async (req, res) => {
   }
 });
 
+// =============================
+// Currency Converter (ExchangeRate-API)
+// =============================
+// GET /convert?amount=100&from=USD&to=EUR
+// Free: 1,500 requests/month, no key needed
+app.get('/convert', async (req, res) => {
+  try {
+    const { amount, from, to } = req.query;
+    if (!amount || !from || !to) {
+      return res.status(400).json({ error: 'Missing amount, from, or to' });
+    }
+
+    const url = `https://api.exchangerate-api.com/v4/latest/${from}`;
+    const resp = await fetch(url);
+    
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      console.error('ExchangeRate-API error:', resp.status, errorText);
+      return res.status(resp.status).json({ error: errorText });
+    }
+
+    const json = await resp.json();
+    const rate = json.rates[to];
+    
+    if (!rate) {
+      return res.status(400).json({ error: `Currency ${to} not found` });
+    }
+    
+    const converted = parseFloat(amount) * rate;
+    
+    res.json({
+      from,
+      to,
+      rate,
+      amount: parseFloat(amount),
+      converted: Math.round(converted * 100) / 100, // 2 decimal places
+    });
+  } catch (e) {
+    console.error('Convert error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 function htmlDecode(str) {
   if (typeof str !== 'string') return str;
   return str
