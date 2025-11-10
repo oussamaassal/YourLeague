@@ -86,7 +86,7 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                labelText: 'Search for users by email',
+                labelText: 'Search for users by name',
                 prefixIcon: const Icon(Icons.search),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(30.0),
@@ -154,8 +154,11 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
               }
 
               // Apply the text search filter on the name
-              final userName = (data['name'] as String).toLowerCase();
-              final searchQueryLower = _searchQuery.toLowerCase();
+              final userName = data['name'].toString().toLowerCase();
+              final searchQueryLower = _searchQuery.trim().toLowerCase();
+
+              // If the search query is empty, include the user (show all non-friend users)
+              if (searchQueryLower.isEmpty) return true;
 
               return userName.contains(searchQueryLower);
             }).toList();
@@ -179,9 +182,10 @@ class _FindFriendsPageState extends State<FindFriendsPage> {
   Widget _buildUserListItem(DocumentSnapshot document) {
     Map<String, dynamic> data = document.data()! as Map<String, dynamic>;
 
-    final String displayName = data['name']; // We already filtered out null names
-    final String friendUid = data['uid'];
-    final String friendEmail = data['email'];
+    // Prefer the document ID as the UID (that's how we filtered earlier), fallback to any stored 'uid' field
+    final String friendUid = document.id.isNotEmpty ? document.id : (data['uid']?.toString() ?? '');
+    final String displayName = data['name']?.toString() ?? 'No name'; // We already filtered out null names
+    final String friendEmail = data['email']?.toString() ?? '';
 
     return ListTile(
       title: Text(displayName), // Display only the name
